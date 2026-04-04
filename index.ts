@@ -3,6 +3,7 @@ import { fetchScreenerAll } from "./fetchScreener.ts";
 import { fetchDailyPriceMulti, type DailyCandle } from "./fetchStockPrice.ts";
 import { computeSignals, computeVolumeEMARatio } from "./indicators.ts";
 import { ITEMS } from "./screenerItems.ts";
+import { daysAgo, today } from "./utils/date.ts";
 import {
     fmtNum,
     fmtPrice,
@@ -10,18 +11,10 @@ import {
     printHeader,
     printSubHeader,
     printTable,
-} from "./print.ts";
+} from "./utils/print.ts";
 
 // Smart money brokers — global investment banks + top institutional
 const SMART_MONEY_BROKERS = ["MS", "BK", "CS", "CG", "GW", "KZ", "RX", "DP", "AK", "ZP", "LG", "TP", "KI", "HP"];
-
-const fmt = (d: Date): string => d.toISOString().slice(0, 10);
-const today = () => fmt(new Date());
-const daysAgo = (n: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
-    return fmt(d);
-};
 
 // Shared candle cache — flowA fetches 120d, flowB reuses for overlapping stocks
 const candleCache: Record<string, DailyCandle[]> = {};

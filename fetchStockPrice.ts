@@ -1,6 +1,4 @@
-import { TOKEN } from "./constants.ts";
-
-const BASE = "https://exodus.stockbit.com";
+import { fetchGET } from "./utils/fetch.ts";
 
 export interface DailyCandle {
     date: string;
@@ -42,11 +40,10 @@ export const fetchDailyPrice = async ({
     to: string;
     limit?: number;
 }): Promise<DailyCandle[]> => {
-    const url = `${BASE}/chartbit/${symbol}/price/daily?from=${from}&to=${to}&limit=${limit}`;
-    const res = await fetch(url, {
-        headers: { Authorization: TOKEN },
+    const json = await fetchGET({
+        path: `/chartbit/${symbol}/price/daily`,
+        params: { from, to, limit: String(limit) },
     });
-    const json = await res.json();
     const raw = json?.data?.chartbit;
     if (!Array.isArray(raw)) return [];
 
@@ -82,11 +79,10 @@ export const fetchIntradayPrice = async ({
     limit?: number;
     minutesMultiplier?: number;
 }): Promise<IntradayCandle[]> => {
-    const url = `${BASE}/chartbit/${symbol}/price/intraday?from=${from}&to=${to}&limit=${limit}&minutes_multiplier=${minutesMultiplier}`;
-    const res = await fetch(url, {
-        headers: { Authorization: TOKEN },
+    const json = await fetchGET({
+        path: `/chartbit/${symbol}/price/intraday`,
+        params: { from: String(from), to: String(to), limit: String(limit), minutes_multiplier: String(minutesMultiplier) },
     });
-    const json = await res.json();
     const raw = json?.data?.chartbit;
     if (!Array.isArray(raw)) return [];
 
@@ -109,22 +105,20 @@ export const fetchDailyPriceMulti = async ({
     from,
     to,
     limit = 0,
-    delay = 300,
 }: {
     symbols: string[];
     from: string;
     to: string;
     limit?: number;
-    delay?: number;
 }): Promise<Record<string, DailyCandle[]>> => {
-    const result: Record<string, DailyCandle[]> = {};
-    for (const symbol of symbols) {
-        try {
-            result[symbol] = await fetchDailyPrice({ symbol, from, to, limit });
-        } catch {
-            result[symbol] = [];
-        }
-        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-    }
-    return result;
+    const entries = await Promise.all(
+        symbols.map(async (symbol) => {
+            try {
+                return [symbol, await fetchDailyPrice({ symbol, from, to, limit })] as const;
+            } catch {
+                return [symbol, []] as const;
+            }
+        })
+    );
+    return Object.fromEntries(entries);
 };

@@ -1,6 +1,5 @@
-import { TOKEN } from "./constants.ts";
-
-const BASE = "https://exodus.stockbit.com";
+import { fmt, parseTFDays, subDays } from "./utils/date.ts";
+import { fetchGET } from "./utils/fetch.ts";
 
 export type BrokerGroup =
     | "BROKER_GROUP_FOREIGN"
@@ -13,30 +12,12 @@ export interface Broker {
 }
 export type StockFlow = Record<string, number>;
 
-const request = async ({
-    path,
-    params,
-}: { path: string; params: Record<string, string | string[]> }) => {
-    const u = new URL(path, BASE);
-    for (const [k, v] of Object.entries(params)) {
-        if (Array.isArray(v))
-            v.forEach((item) => u.searchParams.append(k, item));
-        else u.searchParams.set(k, v);
-    }
-    const res = await fetch(u.toString(), {
-        headers: { Authorization: TOKEN },
-    });
-    return res.json();
-};
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 const fetchBrokerActivitySingle = async ({
     broker,
     from,
     to,
 }: { broker: string; from: string; to: string }): Promise<StockFlow> => {
-    const res = await request({
+    const res = await fetchGET({
         path: "/order-trade/broker/activity",
         params: {
             broker_code: broker,
@@ -70,9 +51,10 @@ export const fetchBrokerActivity = async ({
 }: { brokers: string[]; from: string; to: string }): Promise<StockFlow> => {
     const result: StockFlow = {};
 
-    for (const broker of brokers) {
-        await delay(300);
-        const single = await fetchBrokerActivitySingle({ broker, from, to });
+    const singles = await Promise.all(
+        brokers.map((broker) => fetchBrokerActivitySingle({ broker, from, to }))
+    );
+    for (const single of singles) {
         for (const [sym, val] of Object.entries(single)) {
             result[sym] = (result[sym] ?? 0) + val;
         }
@@ -89,37 +71,20 @@ export const fetchBrokerActivityMultiTF = async ({
     Record<string, StockFlow>
 > => {
     const ref = new Date(date);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const sub = (d: Date, n: number) => {
-        const r = new Date(d);
-        r.setDate(r.getDate() - n);
-        return r;
-    };
-
     const to = fmt(ref);
     const result: Record<string, StockFlow> = {};
 
     for (const tf of timeframes) {
         const days = parseTFDays(tf);
-        const from = fmt(sub(ref, days));
+        const from = fmt(subDays(ref, days));
         result[tf] = await fetchBrokerActivity({ brokers, from, to });
     }
 
     return result;
 };
 
-const parseTFDays = (tf: string): number => {
-    const match = tf.match(/^(\d+)([dwm])$/i);
-    if (!match) throw new Error(`Invalid timeframe: ${tf}`);
-    const [, n, unit] = match;
-    if (unit === "d") return Number(n);
-    if (unit === "w") return Number(n) * 7;
-    if (unit === "m") return Number(n) * 30;
-    throw new Error(`Invalid timeframe unit: ${unit}`);
-};
-
 export const fetchTopBrokers = async (): Promise<Broker[]> => {
-    const res = await request({
+    const res = await fetchGET<{ data: { list: Broker[] } }>({
         path: "/order-trade/broker/top",
         params: {
             sort: "TB_SORT_BY_TOTAL_VALUE",

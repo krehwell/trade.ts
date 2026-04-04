@@ -1,4 +1,4 @@
-import { TOKEN } from "./constants.ts";
+import { fetchPOST } from "./utils/fetch.ts";
 
 export interface ScreenerFilter {
     id: number;
@@ -43,27 +43,23 @@ export const fetchScreener = async ({
         multiplier: "",
     }));
 
-    const payload = JSON.stringify({
-        name: "screen",
-        description: "",
-        save: "0",
-        ordertype: orderType,
-        ordercol: orderCol ?? filters[0]?.id ?? 2661,
-        page,
-        universe: JSON.stringify({ scope: universe, scopeID: "", name: "" }),
-        filters: JSON.stringify(filterPayload),
-        sequence: String(filters.map((f) => f.id).join(",")),
-        screenerid: "0",
-        type: "TEMPLATE_TYPE_CUSTOM",
+    const json = await fetchPOST({
+        path: "/screener/templates",
+        body: {
+            name: "screen",
+            description: "",
+            save: "0",
+            ordertype: orderType,
+            ordercol: orderCol ?? filters[0]?.id ?? 2661,
+            page,
+            universe: JSON.stringify({ scope: universe, scopeID: "", name: "" }),
+            filters: JSON.stringify(filterPayload),
+            sequence: String(filters.map((f) => f.id).join(",")),
+            screenerid: "0",
+            type: "TEMPLATE_TYPE_CUSTOM",
+        },
     });
 
-    const res = await fetch("https://exodus.stockbit.com/screener/templates", {
-        method: "POST",
-        headers: { Authorization: TOKEN, "Content-Type": "application/json" },
-        body: payload,
-    });
-
-    const json = await res.json();
     const d = json.data;
 
     const stocks: ScreenerStock[] = (d.calcs ?? []).map((c: any) => {
