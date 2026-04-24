@@ -1,4 +1,4 @@
-import { fetchPOST } from "./utils/fetch.ts";
+import { fetchPOST } from "./utils/stockbitFetch.ts";
 
 export interface ScreenerFilter {
     id: number;
@@ -64,7 +64,7 @@ export const fetchScreener = async ({
 
     const stocks: ScreenerStock[] = (d.calcs ?? []).map((c: any) => {
         const results: Record<string, number> = {};
-        for (const r of c.results) results[r.item] = Number(r.raw);
+        for (const r of c.results) results[r.id] = Number(r.raw);
         return { symbol: c.company.symbol, name: c.company.name, results };
     });
 

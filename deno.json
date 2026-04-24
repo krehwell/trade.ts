@@ -1,7 +1,8 @@
 {
   "tasks": {
     "start": "deno run --allow-net --allow-env index.ts",
-    "discover": "deno run --allow-net --allow-env discover-screener.ts"
+    "discover": "deno run --allow-net --allow-env discover-screener.ts",
+    "test": "deno test --allow-net --allow-env tests/"
   },
   "compilerOptions": {
     "strict": true

@@ -1,4 +1,4 @@
-import { fetchGET } from "./utils/fetch.ts";
+import { fetchYahooDaily } from "./utils/yahooFetch.ts";
 
 export interface DailyCandle {
     date: string;
@@ -15,88 +15,40 @@ export interface DailyCandle {
     shareOutstanding: number;
 }
 
-export interface IntradayCandle {
-    datetime: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-    value: number;
-    frequency: number;
-    foreignBuy: number;
-    foreignSell: number;
-}
-
-// per-DAYS — from/to as "YYYY-MM-DD" (from=newer, to=older)
+// from/to as "YYYY-MM-DD" — from=newer date, to=older date (kept for compat)
+// Under the hood uses Yahoo Finance since chartbit is paywalled
 export const fetchDailyPrice = async ({
     symbol,
     from,
     to,
-    limit = 0,
 }: {
     symbol: string;
     from: string;
     to: string;
     limit?: number;
 }): Promise<DailyCandle[]> => {
-    const json = await fetchGET({
-        path: `/chartbit/${symbol}/price/daily`,
-        params: { from, to, limit: String(limit) },
-    });
-    const raw = json?.data?.chartbit;
-    if (!Array.isArray(raw)) return [];
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    const days =
+        Math.ceil((fromDate.getTime() - toDate.getTime()) / 86_400_000) + 1;
 
-    return raw.map((c: Record<string, unknown>) => ({
-        date: c.date as string,
-        open: c.open as number,
-        high: c.high as number,
-        low: c.low as number,
-        close: c.close as number,
-        volume: c.volume as number,
-        value: c.value as number,
-        frequency: c.frequency as number,
-        foreignBuy: c.foreignbuy as number,
-        foreignSell: c.foreignsell as number,
-        foreignFlow: c.foreignflow as number,
-        shareOutstanding: c.shareoutstanding as number,
-    }));
-};
+    const yahooCandles = await fetchYahooDaily({ symbol, days });
+    if (yahooCandles.length === 0) return [];
 
-// per-MINUTES — minutesMultiplier: 1 (1m), 5 (5m), 15 (15m)
-// per-HOURS   — minutesMultiplier: 60
-// from/to as unix timestamps
-export const fetchIntradayPrice = async ({
-    symbol,
-    from,
-    to,
-    limit = 0,
-    minutesMultiplier = 60,
-}: {
-    symbol: string;
-    from: number;
-    to: number;
-    limit?: number;
-    minutesMultiplier?: number;
-}): Promise<IntradayCandle[]> => {
-    const json = await fetchGET({
-        path: `/chartbit/${symbol}/price/intraday`,
-        params: { from: String(from), to: String(to), limit: String(limit), minutes_multiplier: String(minutesMultiplier) },
-    });
-    const raw = json?.data?.chartbit;
-    if (!Array.isArray(raw)) return [];
-
-    return raw.map((c: Record<string, unknown>) => ({
-        datetime: c.datetime as string,
-        open: c.open as number,
-        high: c.high as number,
-        low: c.low as number,
-        close: c.close as number,
-        volume: Number(c.volume),
-        value: c.value as number,
-        frequency: Number(c.frequency),
-        foreignBuy: c.foreign_buy as number,
-        foreignSell: c.foreign_sell as number,
+    // Yahoo returns oldest-first; reverse to newest-first (matching old chartbit behavior)
+    return yahooCandles.reverse().map((c) => ({
+        date: c.date,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.volume,
+        value: 0,
+        frequency: 0,
+        foreignBuy: 0,
+        foreignSell: 0,
+        foreignFlow: 0,
+        shareOutstanding: 0,
     }));
 };
 
@@ -104,7 +56,6 @@ export const fetchDailyPriceMulti = async ({
     symbols,
     from,
     to,
-    limit = 0,
 }: {
     symbols: string[];
     from: string;
@@ -114,11 +65,14 @@ export const fetchDailyPriceMulti = async ({
     const entries = await Promise.all(
         symbols.map(async (symbol) => {
             try {
-                return [symbol, await fetchDailyPrice({ symbol, from, to, limit })] as const;
+                return [
+                    symbol,
+                    await fetchDailyPrice({ symbol, from, to }),
+                ] as const;
             } catch {
                 return [symbol, []] as const;
             }
-        })
+        }),
     );
     return Object.fromEntries(entries);
 };

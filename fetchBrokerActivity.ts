@@ -1,5 +1,5 @@
 import { fmt, parseTFDays, subDays } from "./utils/date.ts";
-import { fetchGET } from "./utils/fetch.ts";
+import { fetchGET } from "./utils/stockbitFetch.ts";
 
 export type BrokerGroup =
     | "BROKER_GROUP_FOREIGN"
