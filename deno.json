@@ -3,7 +3,6 @@
     "scan": "deno run --allow-net --allow-env scanner.ts",
     "pick": "deno run --allow-net --allow-env picker.ts",
     "simulate": "deno run --allow-net --allow-env simulate.ts",
-    "discover": "deno run --allow-net --allow-env discover-screener.ts",
     "test": "deno test --allow-net --allow-env tests/"
   },
   "compilerOptions": {
