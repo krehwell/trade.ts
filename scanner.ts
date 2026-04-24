@@ -12,6 +12,7 @@ import {
     printSubHeader,
     printTable,
 } from "./utils/print.ts";
+import { detectRegime, printRegime } from "./marketRegime.ts";
 
 // Smart money brokers — global investment banks + top institutional
 const SMART_MONEY_BROKERS = ["MS", "BK", "CS", "CG", "GW", "KZ", "RX", "DP", "AK", "ZP", "LG", "TP", "KI", "HP"];
@@ -250,6 +251,15 @@ const flowB = async (): Promise<string[]> => {
 
 async function main() {
     printHeader(`IDX STOCK SCANNER — ${today()}`);
+
+    // Step 0: Market regime check
+    const regime = await detectRegime();
+    printRegime(regime);
+
+    if (regime.regime === "SIT_OUT") {
+        console.log("  Stopping scan — market regime is hostile.");
+        return;
+    }
 
     // Sequential — both flows hit the same rate-limited candle API
     const stocksA = await flowA();

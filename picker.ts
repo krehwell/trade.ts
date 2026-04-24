@@ -89,9 +89,13 @@ interface Candidate {
     // SM broker flow
     smFlow1d: number;
     smFlow1w: number;
-    // Final
-    score: number;
-    signals: string[];
+    // Gated scoring
+    foundation: string[];       // must have at least 1
+    confirmations: string[];    // only counted if foundation passes
+    contradictions: string[];   // vetoes that downgrade
+    grade: "A" | "B" | "C" | "D" | "REJECT";
+    score: number;              // confirmations - contradictions (only for sorting within grade)
+    signals: string[];          // all signals for display
 }
 
 async function main() {
@@ -217,113 +221,119 @@ async function main() {
         const smFlow1d = smFlows["1d"]?.[sym] ?? 0;
         const smFlow1w = smFlows["1w"]?.[sym] ?? 0;
 
-        // --- SCORING ---
-        let score = 0;
-        const signals: string[] = [];
-
-        // 1. BANDAR MOMENTUM (most important signal from backtest)
-        //    Bandar value > MA10 AND MA20 = accumulation trend
-        if (bandarValue > 0) {
-            score += 3;
-            signals.push("bandar+");
-        }
-        if (bandarValue > bandarMA10 && bandarMA10 > 0) {
-            score += 3;
-            signals.push("bandar>MA10");
-        }
-        if (bandarValue > bandarMA20 && bandarMA20 > 0) {
-            score += 2;
-            signals.push("bandar>MA20");
-        }
-        // Bandar acceleration: today > yesterday
-        if (bandarValue > bandarPrev && bandarPrev > 0) {
-            score += 3;
-            signals.push("bandar↑↑");
-        }
-        // Bandar accumulation/distribution positive
-        if (bandarAccDist > 0) {
-            score += 2;
-            signals.push("accDist+");
-        }
-
-        // 2. VOLUME BREAKOUT (second most important — this caught COAL, BDMN, BAIK)
-        if (volRatio5 > 3.0) {
-            score += 5;
-            signals.push(`vol ${volRatio5.toFixed(1)}x!`);
-        } else if (volRatio5 > 2.0) {
-            score += 3;
-            signals.push(`vol ${volRatio5.toFixed(1)}x`);
-        } else if (volRatio5 > 1.5) {
-            score += 2;
-            signals.push(`vol ${volRatio5.toFixed(1)}x`);
-        }
-
-        // Volume expanding over days (not just a single spike)
-        if (volTrend > 0.5) {
-            score += 2;
-            signals.push("volExpanding");
-        }
-
-        // 3. PRICE MOMENTUM (the winners kept running — don't penalize momentum!)
-        if (chg1d > 5 && chg1d <= 15) {
-            score += 3;
-            signals.push(`+${chg1d.toFixed(1)}%today`);
-        } else if (chg1d > 2) {
-            score += 2;
-            signals.push(`+${chg1d.toFixed(1)}%today`);
-        } else if (chg1d > 0) {
-            score += 1;
-        }
-
-        // Multi-day momentum — stocks that ran 3-5 days continue
-        if (chg3d > 5 && chg5d > 10) {
-            score += 2;
-            signals.push("momentum3-5d");
-        }
-
-        // 4. PRICE PATTERN
-        if (closedNearHigh) {
-            score += 2;
-            signals.push("closeNearHigh");
-        }
-        if (higher_lows_3d) {
-            score += 1;
-            signals.push("higherLows");
-        }
-
-        // 5. SM BROKER CONFIRMATION
-        if (smFlow1d > 0) {
-            score += 2;
-            signals.push("SM1d+");
-        }
-        if (smFlow1w > 0) {
-            score += 2;
-            signals.push("SM1w+");
-        }
-
-        // 6. RETAIL DIVERGENCE (retail selling while bandar buying = strong)
+        // --- GATED SCORING ---
+        // Foundation → Confirmation → Contradiction cross-check
+        const foundation: string[] = [];
+        const confirmations: string[] = [];
+        const contradictions: string[] = [];
         const retail1w = retailFlow1w[sym] ?? 0;
-        if (retail1w < 0 && bandarValue > 0) {
-            score += 2;
-            signals.push("retailSelling");
+        const closedNearLow = todayRange > 0 && (t.close - t.low) / todayRange < 0.3;
+
+        // ═══ FOUNDATION (need at least 1 to proceed) ═══
+        // F1: Bandar accumulation trend (value > 0 AND above MA10 or accelerating)
+        if (bandarValue > 0 && (bandarValue > bandarMA10 || (bandarValue > bandarPrev && bandarPrev > 0))) {
+            foundation.push("bandarTrend");
+        }
+        // F2: SM broker weekly accumulation
+        if (smFlow1w > 0) {
+            foundation.push("SM1w+");
+        }
+        // F3: Strong bandar with accum/dist confirmation
+        if (bandarValue > 0 && bandarAccDist > 0) {
+            foundation.push("bandarAccDist+");
         }
 
-        // 7. PENALTIES
-        // Only penalize if stock is up >25% AND volume is dying (exhaustion)
-        if (chg5d > 25 && volRatio5 < 1.0) {
-            score -= 4;
-            signals.push("EXHAUSTION");
+        // No foundation → reject immediately
+        if (foundation.length === 0) {
+            continue; // skip this stock entirely
         }
-        // Closed near low = weakness
-        if (todayRange > 0 && (t.close - t.low) / todayRange < 0.3 && chg1d < 0) {
-            score -= 3;
-            signals.push("closeNearLow");
+
+        // ═══ CONFIRMATIONS (cross-validated pairs) ═══
+        // C1: Volume confirms price — high vol + close near high = real buying
+        if (volRatio5 > 1.5 && closedNearHigh) {
+            confirmations.push(`vol${volRatio5.toFixed(1)}x+closeHigh`);
         }
-        // Gap up then close red = rejection
+        // C2: Volume breakout with expanding trend (not just a spike)
+        if (volRatio5 > 2.0 && volTrend > 0) {
+            confirmations.push(`vol${volRatio5.toFixed(1)}x+expanding`);
+        }
+        // C3: Bandar + SM alignment (both buying = strong confluence)
+        if (bandarValue > 0 && smFlow1d > 0) {
+            confirmations.push("bandar+SM aligned");
+        }
+        // C4: Momentum confirmed by volume (price up + vol up = real move)
+        if (chg1d > 2 && volRatio5 > 1.5) {
+            confirmations.push(`+${chg1d.toFixed(1)}%+vol`);
+        }
+        // C5: Retail divergence — retail selling while bandar buying
+        if (retail1w < 0 && bandarValue > 0 && smFlow1w >= 0) {
+            confirmations.push("retailDiv");
+        }
+        // C6: Price structure — higher lows + close near high = building
+        if (higher_lows_3d && closedNearHigh) {
+            confirmations.push("structure+");
+        }
+        // C7: Bandar acceleration with volume — today > yesterday AND vol confirms
+        if (bandarValue > bandarPrev && bandarPrev > 0 && volRatio5 > 1.2) {
+            confirmations.push("bandarAccel+vol");
+        }
+        // C8: Multi-day momentum confirmed by bandar trend
+        if (chg3d > 3 && bandarValue > bandarMA10 && bandarMA10 > 0) {
+            confirmations.push("momentum+bandarTrend");
+        }
+
+        // ═══ CONTRADICTIONS (signals that conflict) ═══
+        // X1: Volume spike BUT close near low = distribution, not accumulation
+        if (volRatio5 > 2.0 && closedNearLow) {
+            contradictions.push("highVol+closeLow=DISTRIBUTION");
+        }
+        // X2: Bandar buying BUT SM selling = conflicting smart money
+        if (bandarValue > 0 && smFlow1w < 0) {
+            contradictions.push("bandar+vsSM-=CONFLICT");
+        }
+        // X3: Price up BUT volume dying = fake/unsustained move
+        if (chg1d > 2 && volRatio5 < 0.8) {
+            contradictions.push("priceUp+volDead=FAKE");
+        }
+        // X4: Momentum up BUT close near low = rejection / exhaustion
+        if (chg5d > 15 && closedNearLow && chg1d < 0) {
+            contradictions.push("extended+rejection=EXHAUSTION");
+        }
+        // X5: Gap up then closed red = buyer rejection
         if (gapUp && chg1d < -1) {
-            score -= 3;
-            signals.push("gapRejection");
+            contradictions.push("gapRejection");
         }
+        // X6: Volume declining multi-day while price rising = unsustainable
+        if (chg3d > 5 && volTrend < -0.3) {
+            contradictions.push("priceUp+volFading=WEAK");
+        }
+
+        // ═══ GRADE ASSIGNMENT ═══
+        const netScore = confirmations.length - contradictions.length;
+        let grade: "A" | "B" | "C" | "D" | "REJECT";
+
+        if (contradictions.length >= 2) {
+            grade = "REJECT"; // multiple conflicts = unreliable
+        } else if (confirmations.length >= 4 && contradictions.length === 0) {
+            grade = "A"; // strong confluence, no conflicts
+        } else if (confirmations.length >= 3 && contradictions.length === 0) {
+            grade = "B"; // good confluence, clean
+        } else if (confirmations.length >= 2 && contradictions.length <= 1) {
+            grade = "C"; // moderate, minor concern
+        } else if (confirmations.length >= 1 && contradictions.length === 0) {
+            grade = "D"; // weak but clean
+        } else {
+            grade = "REJECT";
+        }
+
+        if (grade === "REJECT") continue;
+
+        // Build signals for display
+        const signals = [
+            `[${foundation.join(",")}]`,
+            ...confirmations.map(c => `+${c}`),
+            ...contradictions.map(c => `-${c}`),
+        ];
 
         candidates.push({
             symbol: sym, price, marketCap,
@@ -334,40 +344,45 @@ async function main() {
             volRatio5, volRatio10, volTrend,
             rangePosition, gapUp, closedNearHigh, higher_lows_3d,
             smFlow1d, smFlow1w,
-            score, signals,
+            foundation, confirmations, contradictions, grade,
+            score: netScore, signals,
         });
     }
 
-    candidates.sort((a, b) => b.score - a.score);
+    // Sort by grade (A>B>C>D) then by confirmations within grade
+    const gradeOrder = { A: 0, B: 1, C: 2, D: 3, REJECT: 4 };
+    candidates.sort((a, b) => gradeOrder[a.grade] - gradeOrder[b.grade] || b.score - a.score);
 
     // Print results
-    printSubHeader(`TOP CANDIDATES (${candidates.length} scored)`);
+    const gradeA = candidates.filter(c => c.grade === "A").length;
+    const gradeB = candidates.filter(c => c.grade === "B").length;
+    const gradeC = candidates.filter(c => c.grade === "C").length;
+    const gradeD = candidates.filter(c => c.grade === "D").length;
+    printSubHeader(`CANDIDATES: ${candidates.length} passed (A:${gradeA} B:${gradeB} C:${gradeC} D:${gradeD})`);
     printTable({
         columns: [
             { label: "#", width: 4, align: "right" },
             { label: "Stock", width: 7 },
-            { label: "Score", width: 6, align: "right" },
+            { label: "Grd", width: 4 },
+            { label: "Conf", width: 5, align: "right" },
+            { label: "Contr", width: 5, align: "right" },
             { label: "Price", width: 8, align: "right" },
             { label: "Chg1d", width: 7, align: "right" },
-            { label: "Chg5d", width: 7, align: "right" },
             { label: "Vol/5d", width: 7, align: "right" },
             { label: "Bandar", width: 10, align: "right" },
-            { label: "BdPrev", width: 10, align: "right" },
-            { label: "AccDist", width: 10, align: "right" },
             { label: "SM1w", width: 10, align: "right" },
-            { label: "Signals", width: 40 },
+            { label: "Signals", width: 50 },
         ],
         rows: candidates.slice(0, 30).map((c, i) => [
             String(i + 1),
             c.symbol,
-            String(c.score),
+            c.grade,
+            String(c.confirmations.length),
+            String(c.contradictions.length),
             String(c.price),
             `${c.chg1d >= 0 ? "+" : ""}${c.chg1d.toFixed(1)}%`,
-            `${c.chg5d >= 0 ? "+" : ""}${c.chg5d.toFixed(1)}%`,
             `${c.volRatio5.toFixed(1)}x`,
             fmtNum(c.bandarValue),
-            fmtNum(c.bandarPrev),
-            fmtNum(c.bandarAccDist),
             fmtNum(c.smFlow1w),
             c.signals.join(", "),
         ]),
@@ -380,20 +395,30 @@ async function main() {
     for (const c of candidates.slice(0, maxPicks)) {
         const yahooC = candles[c.symbol];
         if (!yahooC) continue;
-        console.log(`\n  ${c.symbol} — Score: ${c.score} | ${c.signals.join(", ")}`);
-        console.log(`    Price: ${c.price} | 1d: ${c.chg1d.toFixed(1)}% | 3d: ${c.chg3d.toFixed(1)}% | 5d: ${c.chg5d.toFixed(1)}%`);
+
+        const gradeColor = c.grade === "A" ? "\x1b[32m" : c.grade === "B" ? "\x1b[33m" : "\x1b[90m";
+        const reset = "\x1b[0m";
+
+        console.log(`\n  ${gradeColor}[${c.grade}]${reset} ${c.symbol} — ${c.price}`);
+        console.log(`    Foundation: ${c.foundation.join(", ")}`);
+        console.log(`    Confirmed:  ${c.confirmations.length > 0 ? c.confirmations.join(" | ") : "none"}`);
+        if (c.contradictions.length > 0) {
+            console.log(`    \x1b[31mConflicts:  ${c.contradictions.join(" | ")}\x1b[0m`);
+        }
+        console.log(`    Price: 1d: ${c.chg1d >= 0 ? "+" : ""}${c.chg1d.toFixed(1)}% | 3d: ${c.chg3d >= 0 ? "+" : ""}${c.chg3d.toFixed(1)}% | 5d: ${c.chg5d >= 0 ? "+" : ""}${c.chg5d.toFixed(1)}%`);
         console.log(`    Vol: ${c.volRatio5.toFixed(1)}x 5d avg | Trend: ${c.volTrend > 0 ? "expanding" : "flat/contracting"}`);
         console.log(`    Bandar: ${fmtNum(c.bandarValue)} (prev: ${fmtNum(c.bandarPrev)}) | AccDist: ${fmtNum(c.bandarAccDist)}`);
         console.log(`    SM 1d: ${fmtNum(c.smFlow1d)} | SM 1w: ${fmtNum(c.smFlow1w)}`);
-        console.log(`    Range pos: ${(c.rangePosition * 100).toFixed(0)}% | CloseNearHigh: ${c.closedNearHigh} | HigherLows: ${c.higher_lows_3d}`);
+        console.log(`    Range pos: ${(c.rangePosition * 100).toFixed(0)}% | CloseHigh: ${c.closedNearHigh} | HigherLows: ${c.higher_lows_3d}`);
 
         // Last 5 candles
         console.log(`    Last 5 candles:`);
-        for (const candle of yahooC.slice(-5)) {
-            const chg = yahooC.indexOf(candle) > 0
-                ? ((candle.close - yahooC[yahooC.indexOf(candle) - 1].close) / yahooC[yahooC.indexOf(candle) - 1].close * 100).toFixed(1)
-                : "0.0";
-            console.log(`      ${candle.date} | O:${candle.open} H:${candle.high} L:${candle.low} C:${candle.close} | Vol:${candle.volume} | ${Number(chg) >= 0 ? "+" : ""}${chg}%`);
+        for (let i = Math.max(0, yahooC.length - 5); i < yahooC.length; i++) {
+            const candle = yahooC[i];
+            const prev = i > 0 ? yahooC[i - 1] : null;
+            const chg = prev ? ((candle.close - prev.close) / prev.close * 100).toFixed(1) : "0.0";
+            const body = candle.close >= candle.open ? "\x1b[32m" : "\x1b[31m";
+            console.log(`      ${body}${candle.date} | O:${candle.open} H:${candle.high} L:${candle.low} C:${candle.close}\x1b[0m | Vol:${candle.volume} | ${Number(chg) >= 0 ? "+" : ""}${chg}%`);
         }
     }
 }
