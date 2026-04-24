@@ -69,10 +69,14 @@ export const detectRegime = async (): Promise<RegimeResult> => {
     const ma10 = sma(closes, 10);
     const ma20 = sma(closes, 20);
 
-    // MA5 slope: compare current MA5 to MA5 from 3 days ago
+    // MA slopes: compare current to 3 days ago
     const closes3dAgo = closes.slice(0, -3);
     const ma5_3dAgo = sma(closes3dAgo, 5);
+    const ma10_3dAgo = sma(closes3dAgo, 10);
     const ma5Slope = !isNaN(ma5_3dAgo) && ma5_3dAgo > 0 ? (ma5 - ma5_3dAgo) / ma5_3dAgo * 100 : 0;
+    const ma10Slope = !isNaN(ma10_3dAgo) && ma10_3dAgo > 0 ? (ma10 - ma10_3dAgo) / ma10_3dAgo * 100 : 0;
+    const distMa20 = !isNaN(ma20) && ma20 > 0 ? (t.close - ma20) / ma20 * 100 : 0;
+    const chg10d = last >= 10 ? (t.close - ihsgCandles[last - 10].close) / ihsgCandles[last - 10].close * 100 : 0;
 
     const aboveMa5 = t.close > ma5;
     const aboveMa10 = t.close > ma10;
@@ -154,6 +158,18 @@ export const detectRegime = async (): Promise<RegimeResult> => {
     else if (score >= 1) regime = "NORMAL";
     else if (score >= -3) regime = "DEFENSIVE";
     else regime = "SIT_OUT";
+
+    // TRAP FILTER 1: dead cat bounce — price deep below MA20 + MA10 still falling
+    if (distMa20 < -3 && ma10Slope < 0 && regime !== "SIT_OUT") {
+        signals.push("TRAP: dead cat bounce (below MA20 + MA10 falling)");
+        regime = "SIT_OUT";
+    }
+
+    // TRAP FILTER 2: exhaustion — big 10d run + negative day = topping
+    if (chg10d > 7 && chg1d < 0 && regime !== "SIT_OUT") {
+        signals.push("TRAP: exhaustion (10d run + negative day)");
+        regime = "DEFENSIVE";
+    }
 
     return {
         regime,
