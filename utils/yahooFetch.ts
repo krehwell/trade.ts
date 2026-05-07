@@ -7,6 +7,47 @@ export interface YahooCandle {
     volume: number;
 }
 
+export interface Candle {
+    date: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
+export const fetchCandles = async ({ symbol, range = "30d", interval = "1d" }: {
+    symbol: string;
+    range?: string;
+    interval?: string;
+}): Promise<Candle[]> => {
+    const ticker = symbol.startsWith("^") || symbol.endsWith(".JK") ? symbol : `${symbol}.JK`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=${range}&interval=${interval}`;
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const json = await res.json();
+
+    const result = json.chart?.result?.[0];
+    if (!result?.timestamp) return [];
+
+    const ts = result.timestamp as number[];
+    const q = result.indicators.quote[0];
+    const candles: Candle[] = [];
+
+    for (let i = 0; i < ts.length; i++) {
+        if (q.close[i] == null) continue;
+        candles.push({
+            date: ts[i],
+            open: q.open[i],
+            high: q.high[i],
+            low: q.low[i],
+            close: q.close[i],
+            volume: q.volume[i],
+        });
+    }
+
+    return candles;
+};
+
 export const fetchYahooDaily = async ({ symbol, days = 60 }: {
     symbol: string;
     days?: number;

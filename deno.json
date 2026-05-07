@@ -1,9 +1,8 @@
 {
   "tasks": {
-    "scan": "deno run --allow-net --allow-env scanner.ts",
+    "daily": "deno run --allow-net daily.ts",
     "pick": "deno run --allow-net --allow-env picker.ts",
-    "simulate": "deno run --allow-net --allow-env simulate.ts",
-    "monitor": "deno run --allow-net --allow-env monitor.ts",
+    "check": "deno run --allow-net picks_check.ts",
     "test": "deno test --allow-net --allow-env tests/"
   },
   "compilerOptions": {

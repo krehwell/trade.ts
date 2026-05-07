@@ -13,7 +13,7 @@ import { fetchScreener, type ScreenerStock } from "./fetchScreener.ts";
 import { fetchBrokerActivity, fetchBrokerActivityMultiTF, fetchTopBrokers } from "./fetchBrokerActivity.ts";
 import { fetchYahooDailyMulti, type YahooCandle } from "./utils/yahooFetch.ts";
 import { fetchPOST } from "./utils/stockbitFetch.ts";
-import { ITEMS } from "./screenerItems.ts";
+import { ITEMS } from "./utils/screenerItems.ts";
 import { daysAgo, today } from "./utils/date.ts";
 import { fmtNum, printHeader, printSubHeader, printTable } from "./utils/print.ts";
 import { detectRegime, printRegime } from "./marketRegime.ts";
