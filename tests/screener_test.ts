@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { fetchScreener } from "../fetchScreener.ts";
-import { ITEMS } from "../screenerItems.ts";
+import { ITEMS } from "../utils/screenerItems.ts";
 
 Deno.test("fetchScreener - no filters (all stocks)", async () => {
     const res = await fetchScreener({ perPage: 5 });

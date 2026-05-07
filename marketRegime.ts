@@ -1,6 +1,6 @@
 import { fetchYahooDaily, type YahooCandle } from "./utils/yahooFetch.ts";
 import { fetchScreener } from "./fetchScreener.ts";
-import { ITEMS } from "./screenerItems.ts";
+import { ITEMS } from "./utils/screenerItems.ts";
 import { printSubHeader } from "./utils/print.ts";
 
 export type Regime = "AGGRESSIVE" | "NORMAL" | "DEFENSIVE" | "SIT_OUT";
