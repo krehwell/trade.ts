@@ -12,15 +12,116 @@ When asked to analyze or build:
 
 # Daily Workflow
 
-**Full SOP lives in `memory/MEMORY.md` — read it every new session.**
-
-Quick summary:
-1. **Validate** — Check token, check time, validate yesterday's picks first
-2. **Regime** — IHSG candles → compute MAs, slope, breadth → determine SIT_OUT/DEFENSIVE/NORMAL/AGGRESSIVE
+1. **Validate** — Check token (`utils/constants.ts`), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
+2. **Regime** — Run `deno task daily`. Note regime, breadth, top inflows, candle data.
 3. **Scan** — Full market screener (top 50 by bandar), compute daily deltas, rank by flow
-4. **Analyze** — Pull candles for top flow stocks, check price action, flag traps
-5. **Recommend** — Regime-adjusted TP/stop, entry rules by gap size
-6. **Validate next day** — Report what happened, refine framework
+4. **Analyze** — Pull candles for top flow stocks, check price action, flag traps (see Analysis Checklist below)
+5. **Recommend** — Regime-adjusted TP/stop from the table below. NEVER skip the regime gate.
+6. **Re-analyze** — Verify each pick again with fresh eyes before outputting
+7. **Validate next day** — Report what happened, refine framework
+
+# Regime-Adjusted Parameters
+
+**EVERY entry/TP/stop number MUST come from this table. This is not optional.**
+
+| Regime | Max Picks | TP | Stop | Max Gap Entry | Hold Period | Entry Timing |
+|--------|-----------|-----|------|---------------|-------------|--------------|
+| SIT_OUT | 0-2, half size | **+2%** | **-2%** | <1% (skip >1%) | Intraday-1d | Wait 30min after open |
+| DEFENSIVE | 3 max, half size | +3-5% | -3% | <2% | 1-2 days | Wait 15min |
+| NORMAL | 5-7 picks | +5-8% | -4-5% | <3% | 1-3 days | Open or dip |
+| AGGRESSIVE | Full 7, momentum | +8-15% | -6-8% | <5% | 2-5 days | Open, chase ok |
+
+**Breadth**: < 22% = hostile. > 30% = healthy.
+
+### SIT_OUT Rules (override any stock-level analysis)
+
+- TP = entry + 2%. NOT "resistance". NOT "+5%". TWO PERCENT. Empirically proven ceiling.
+- Stop = entry - 2%. Cut fast.
+- Gap > 1% at open = DO NOT ENTER.
+- Gap > 2% at open = SELL into the gap. The gap IS the move.
+- Wait 30min after open. IHSG red >1% at 9:30 = NO ENTRIES.
+- Position size = 50% of normal.
+- Example: stock at 272 → TP = 277 (+2%). Stop = 266 (-2%). NOT "TP at resistance 290".
+
+### DEFENSIVE Rules
+
+- TP = +3-5%. Take 50% at +3%, trail rest to +5%.
+- Stop = -3%.
+- Gap > 2% = skip.
+
+### Self-Check
+
+Before outputting ANY entry/TP/stop: "Am I using the regime table?" If your TP% exceeds the table, you are wrong. This mistake has happened repeatedly. Regime > individual stock strength. Always.
+
+# Analysis Checklist
+
+### Price Action (from candles)
+- Last 5-7 candles: higher highs/lows? Or lower?
+- Today's candle: close near high (bullish) or near low (distribution)?
+- Gap up that held = strong. Gap up that faded = TRAP.
+- Rising price + rising vol = real. Rising price + falling vol = suspect.
+
+### Flow Check
+- Daily delta positive AND accelerating (today > yesterday)? = Strong
+- Daily delta positive but decelerating? = Momentum fading
+- Large cumulative but negative daily delta? = Distribution, AVOID
+
+### Red Flags (REJECT the pick)
+- Ran hard + volume declining = exhaustion
+- Close near low after big run = distribution
+- Gap up then closed red = rejection
+- Thin volume (<1B daily value) = can't exit
+- At multi-week high with no pullback = chasing
+- Big bandar inflow + price crashed = trap
+
+### Output Format (mandatory for every recommendation)
+
+```
+=== [SYMBOL] — [BULLISH/NEUTRAL/BEARISH] ===
+Close: [price] | Chg: [%] | Vol: [x]M
+
+✓ SM Flow: +[X]B daily delta (aligned/divergent)
+✓ Extension: +[X]% from MA5 (< regime limit / OVEREXTENDED)
+✓ Contradictions: [N] ([list if any])
+✓ Confirmations: [N] ([list])
+✓ Price Structure: [description]
+
+Entry: [price] | TP: [price] (+[X]%) | Stop: [price] (-[X]%)
+Gap rules: [flat enter / gap >2% sell into it / etc]
+```
+
+# TP Framework (Empirical)
+
+From actual SIT_OUT price action (breadth ~20%):
+- BRPT: peaked +2.5% then faded
+- CDIA: peaked +2.4% then faded
+- ARCI: peaked +2.5% then faded
+- BRMS: peaked +3% then faded
+
+**+2% is the empirical ceiling in SIT_OUT.** Upgrade conditions:
+- Breadth > 30% → DEFENSIVE TPs (+3-5%)
+- IHSG reclaims MA20 + MA10 flattening → NORMAL TPs (+5-8%)
+
+# Key Lessons
+
+1. **Regime is #1** — beats all stock-level signals. Apr 24: score -10, ALL 7 picks lost avg -5.78%
+2. **Scan ALL stocks** — don't just check previous watchlist
+3. **+2% TP in SIT_OUT** — empirically validated ceiling
+4. **Gap up in SIT_OUT = exit signal** — the gap IS the TP
+5. **Big bandar flow ≠ price action** — CDIA May 7: +22B flow, -9.3% price. Flow can be exit liquidity.
+6. **Price structure > flow** — clean structure + flow beats flow alone
+7. **Don't penalize momentum** — IF volume and bandar confirm, runners keep running
+8. **"Safe" picks average +0%** — waste of capital. Prefer conviction plays.
+9. **Validate honestly** — report results, adjust framework, don't cherry-pick
+10. **Breadth stuck at 20% for days** = narrow rally, not broad opportunity
+11. **NEVER give normal TP/SL in SIT_OUT** — regime table is HARD LIMIT, not suggestion
+
+# Backtest Results
+
+- **Gated scoring + regime**: +88.81%, profit factor 1.54, 51% win rate
+- **Without regime**: -92.65% (regime saved ~180pp)
+- **Trap filters**: saved ~64pp
+- **Gated vs old additive scoring**: +56.81pp improvement
 
 # Approach
 
@@ -45,13 +146,13 @@ Quick summary:
 - Use native `fetch` (not node:https) — Deno has built-in
 - All Stockbit API requests via `utils/stockbitFetch.ts` (auth + base URL baked in)
 - Yahoo Finance candles via `utils/yahooFetch.ts` (Stockbit chartbit paywalled)
-- No rate limiting needed — Stockbit no throttle
 
 # API Quirks
 
 - Screener only returns data for FILTER columns, not sequence columns
-- BANDAR_VALUE is cumulative — compute daily delta via `BANDAR_VALUE - BANDAR_PREV_VALUE`
+- BANDAR_VALUE is cumulative — daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`
 - BANDAR_PREV_VALUE must be added as dummy filter to be returned
+- Stocks can show large positive cumulative but be NET SELLING today — always compute delta
 - Screener `name` field must be non-empty (use `"screen"`)
 - Screener has NO date parameter — always returns current data
 - Broker activity returns max 200 buy + 200 sell per request
@@ -61,7 +162,7 @@ Quick summary:
 # Project Structure
 
 ## Entry Points
-- `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime check → full screener scan → candles for top flow stocks. All data in one command.
+- `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime check → full screener scan → candles for top flow stocks.
 - `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
 - `picks_check.ts` (`deno task check`) — Quick candle check for watchlist + IHSG
 
@@ -90,5 +191,3 @@ Gated cross-validation, NOT additive:
 
 1. **Dead cat bounce**: distMA20 < -3% AND MA10 slope < 0 → force SIT_OUT
 2. **Exhaustion**: 10d change > 7% AND daily < 0 → downgrade to DEFENSIVE
-
-30-day backtest: +88.81% with regime, -92.65% without. Profit factor 1.54. Trap filters saved ~64pp.
