@@ -14,12 +14,9 @@ const ensureFreshAuth = (): Promise<void> => {
     if (!refreshing) {
         refreshing = (async () => {
             const t = await refreshAccessToken();
-            authToken = `Bearer ${t.accessToken}`;
+            authToken = t.token;
             try {
-                await persistTokens({
-                    accessToken: t.accessToken,
-                    refreshToken: t.refreshToken,
-                });
+                await persistTokens({ token: t.token, refreshToken: t.refreshToken });
             } catch (_) {
                 // no --allow-write/read: refreshed token stays in-memory for this run
             }
@@ -43,13 +40,13 @@ export const fetchGET = async <T = any>({
     }
     let res = await fetch(u.toString(), {
         headers: { Authorization: authToken },
-        client: wrapClient,
+        client: warpClient,
     });
     if (res.status === 401) {
         await ensureFreshAuth();
         res = await fetch(u.toString(), {
             headers: { Authorization: authToken },
-            client: wrapClient,
+            client: warpClient,
         });
     }
     return res.json();
@@ -70,7 +67,7 @@ export const fetchPOST = async <T = any>({
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
-            client: wrapClient,
+            client: warpClient,
         });
     let res = await doFetch();
     if (res.status === 401) {
