@@ -1,11 +1,11 @@
 {
   "tasks": {
     "refresh": "deno run --allow-net --allow-read --allow-write refresh.ts",
-    "daily": "deno run --allow-net daily.ts",
-    "pick": "deno run --allow-net --allow-env picker.ts",
-    "check": "deno run --allow-net picks_check.ts",
-    "test": "deno test --allow-net --allow-env tests/",
-    "morning": "deno run --allow-net morning_check.ts"
+    "daily": "deno run --unstable-http --allow-net daily.ts",
+    "pick": "deno run --unstable-http --allow-net --allow-env picker.ts",
+    "check": "deno run --unstable-http --allow-net picks_check.ts",
+    "test": "deno test --unstable-http --allow-net --allow-env tests/",
+    "morning": "deno run --unstable-http --allow-net morning_check.ts"
   },
   "compilerOptions": {
     "strict": true
