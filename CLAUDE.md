@@ -26,7 +26,7 @@ When asked to analyze or build:
 
 | Regime | Max Picks | TP | Stop | Max Gap Entry | Hold Period | Entry Timing |
 |--------|-----------|-----|------|---------------|-------------|--------------|
-| SIT_OUT | 0-2, half size | **+2%** | **-2%** | <1% (skip >1%) | Intraday-1d | Wait 30min after open |
+| SIT_OUT | 0-2, half size | **+2%** | **-2%** | <1% (skip >1%) | Intraday-1d | Wait 60min after open |
 | DEFENSIVE | 3 max, half size | +3-5% | -3% | <2% | 1-2 days | Wait 15min |
 | NORMAL | 5-7 picks | +5-8% | -4-5% | <3% | 1-3 days | Open or dip |
 | AGGRESSIVE | Full 7, momentum | +8-15% | -6-8% | <5% | 2-5 days | Open, chase ok |
@@ -39,7 +39,7 @@ When asked to analyze or build:
 - Stop = entry - 2%. Cut fast.
 - Gap > 1% at open = DO NOT ENTER.
 - Gap > 2% at open = SELL into the gap. The gap IS the move.
-- Wait 30min after open. IHSG red >1% at 9:30 = NO ENTRIES.
+- Wait 60min after open. First-hour noise is maximum. IHSG red >1% at 9:30 = NO ENTRIES.
 - Position size = 50% of normal.
 - Example: stock at 272 → TP = 277 (+2%). Stop = 266 (-2%). NOT "TP at resistance 290".
 
@@ -115,6 +115,11 @@ From actual SIT_OUT price action (breadth ~20%):
 9. **Validate honestly** — report results, adjust framework, don't cherry-pick
 10. **Breadth stuck at 20% for days** = narrow rally, not broad opportunity
 11. **NEVER give normal TP/SL in SIT_OUT** — regime table is HARD LIMIT, not suggestion
+12. **Every OUT call MUST include a re-entry trigger** — "OUT for now. Re-enter if X" is mandatory. Never call OUT without the conditional path back in.
+13. **Temporary MA5 dip + quick rebound = shakeout, not breakdown** — don't reject stocks on a brief MA5 loss if they reclaim within the same candle
+14. **SIT_OUT first-hour whipsaw is real** — May 25: BRIS dipped below MA5 at open, OUT called, stock bounced +2.3%. Wait 60min before final OUT decision in SIT_OUT (not 30min). First-hour noise is maximum.
+15. **No re-entry after profit** — once TP is hit and you exit with profit, do NOT re-enter the same stock same day. The move is done. Chasing re-entry turns winners into losers. Take the P&L and move on.
+16. **TP hit = no further commentary** — once a pick hits TP, don't provide additional analysis, insight, or "what could have been." Just mark it complete and stay silent. The trade is closed.
 
 # Backtest Results
 
