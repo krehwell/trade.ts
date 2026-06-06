@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "refresh": "deno run --allow-net --allow-read --allow-write refresh.ts",
     "daily": "deno run --allow-net daily.ts",
     "pick": "deno run --allow-net --allow-env picker.ts",
     "check": "deno run --allow-net picks_check.ts",

@@ -12,7 +12,7 @@ When asked to analyze or build:
 
 # Daily Workflow
 
-1. **Validate** — Check token (`utils/constants.ts`), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
+1. **Validate** — Check token (`utils/constants.ts`; `deno task refresh` if expired — see Token Refresh), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
 2. **Regime** — Run `deno task daily`. Note regime, breadth, top inflows, candle data.
 3. **Scan** — Full market screener (top 50 by bandar), compute daily deltas, rank by flow
 4. **Analyze** — Pull candles for top flow stocks, check price action, flag traps (see Analysis Checklist below)
@@ -159,12 +159,23 @@ From actual SIT_OUT price action (breadth ~20%):
 - Chartbit PAYWALLED for individual stocks — only IHSG index works
 - IHSG Yahoo ticker: `^JKSE` | IDX stocks: auto-appended `.JK`
 
+# Token Refresh
+
+The auth token in `utils/constants.ts` is the **exodus** data token (`iss: STOCKBIT`, RS256, ~24h). All scanner tools use it.
+
+- **Refresh endpoint:** `POST https://exodus.stockbit.com/login/refresh` with header `Authorization: Bearer <REFRESH_TOKEN>`, empty body. Returns `{ data: { access: {token, expired_at}, refresh: {token, expired_at} } }`.
+- **Refresh token** (`data.typ: refresh`, ~7d life) is NOT the access token. Source: browser localStorage key `credentialStorage` (URL-encoded JSON → `state.refresh.token`). It is stored encoded under loose keys `at`/`ar`, so read `credentialStorage` instead.
+- **SINGLE-USE + SESSION ROTATION:** each refresh invalidates BOTH old tokens (access AND refresh) and issues a new pair. The new refresh token MUST be persisted or the next call is `UNAUTHORIZED`. Because it rotates the whole session, the **bot and a browser cannot share one login** — whoever refreshes logs the other out. Give the bot its own dedicated login session.
+- **Code:** `utils/refreshToken.ts` (`refreshAccessToken` + `persistTokens`), `refresh.ts` (`deno task refresh`, has `--allow-read --allow-write`). `stockbitFetch.ts` auto-refreshes once on 401, dedupes concurrent refreshes, persists if write perms allow. Don't run two tools concurrently on an expired token — they'd double-refresh and invalidate each other.
+- **DEAD END:** `api-sekuritas.stockbit.com/partner/eipo/access_token` returns `EIPO_PARTNER_ACCESS_TOKEN` (HS256, partner-scoped, 60s/10min) for the EIPO/trading module — NOT the exodus data token. Cannot refresh `constants.ts`.
+
 # Project Structure
 
 ## Entry Points
 - `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime check → full screener scan → candles for top flow stocks.
 - `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
 - `picks_check.ts` (`deno task check`) — Quick candle check for watchlist + IHSG
+- `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `constants.ts`. See Token Refresh.
 
 ## Core Modules
 - `marketRegime.ts` — Regime detector (IHSG trend + breadth + trap filters) → SIT_OUT/DEFENSIVE/NORMAL/AGGRESSIVE
@@ -174,8 +185,9 @@ From actual SIT_OUT price action (breadth ~20%):
 ## Utils
 - `utils/screenerItems.ts` — Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
 - `utils/yahooFetch.ts` — `fetchCandles` (range/interval) + `fetchYahooDaily` (days) + `fetchYahooDailyMulti`
-- `utils/stockbitFetch.ts` — Stockbit fetch wrapper with auth
-- `utils/constants.ts` — Auth token (expires ~24hrs)
+- `utils/stockbitFetch.ts` — Stockbit fetch wrapper with auth (auto-refreshes on 401)
+- `utils/constants.ts` — `TOKEN` (access, ~24h) + `REFRESH_TOKEN` (~7d). See Token Refresh section.
+- `utils/refreshToken.ts` — `refreshAccessToken` (POST /login/refresh) + `persistTokens` (rewrites constants.ts)
 - `utils/date.ts` — Date helpers
 - `utils/print.ts` — Terminal output formatting
 
