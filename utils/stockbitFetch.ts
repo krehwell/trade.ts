@@ -1,3 +1,4 @@
+import { warpClient } from "../lib/warpClient.ts";
 import { TOKEN } from "./constants.ts";
 
 const BASE = "https://exodus.stockbit.com";
@@ -11,6 +12,7 @@ export const fetchGET = async <T = any>({ path, params }: {
         for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
     }
     const res = await fetch(u.toString(), {
+        client: warpClient,
         headers: { Authorization: TOKEN },
     });
     return res.json();
@@ -21,6 +23,7 @@ export const fetchPOST = async <T = any>({ path, body }: {
     body: Record<string, unknown>;
 }): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
+        client: warpClient,
         method: "POST",
         headers: { Authorization: TOKEN, "Content-Type": "application/json" },
         body: JSON.stringify(body),
