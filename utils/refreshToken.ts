@@ -1,16 +1,20 @@
+import { warpClient } from "../lib/warpClient.ts";
 import { REFRESH_TOKEN } from "./constants.ts";
 
 const BASE = "https://exodus.stockbit.com";
 
+// All token fields are COMPLETE Authorization header strings ("Bearer <jwt>"), matching
+// the form stored in constants.ts. The only place a raw JWT becomes a "Bearer ..." string
+// is below, where the API response is read — nowhere else should prepend "Bearer ".
 export interface RefreshedTokens {
-    accessToken: string; // raw JWT, no "Bearer " prefix
-    refreshToken: string;
+    token: string; // "Bearer <jwt>" — new access, ready for Authorization header
+    refreshToken: string; // "Bearer <jwt>" — new refresh (rotated)
     accessExpiredAt: string;
     refreshExpiredAt: string;
 }
 
-// POST /login/refresh — exchange a refresh token for a fresh access + refresh token.
-// Server expects the REFRESH token in the Authorization header and an empty body.
+// POST /login/refresh — exchange the refresh token for a fresh access + refresh pair.
+// Send the REFRESH token in the Authorization header (already "Bearer ..."), empty body.
 // IMPORTANT: refresh is SINGLE-USE and rotates the whole session — the old access AND
 // refresh tokens are invalidated server-side on each call. The new refresh token in the
 // response MUST be persisted, or the next refresh fails with UNAUTHORIZED.
@@ -20,7 +24,8 @@ export const refreshAccessToken = async (
 ): Promise<RefreshedTokens> => {
     const res = await fetch(`${BASE}/login/refresh`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${refreshToken}` },
+        headers: { Authorization: refreshToken },
+        client: warpClient,
     });
     const json = await res.json().catch(() => ({}));
     const data = json?.data;
@@ -30,26 +35,27 @@ export const refreshAccessToken = async (
         );
     }
     return {
-        accessToken: data.access.token,
-        refreshToken: data.refresh.token,
+        token: `Bearer ${data.access.token}`,
+        refreshToken: `Bearer ${data.refresh.token}`,
         accessExpiredAt: data.access.expired_at ?? "",
         refreshExpiredAt: data.refresh.expired_at ?? "",
     };
 };
 
 // Rewrite utils/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
+// Both args are full "Bearer ..." strings and are written verbatim.
 export const persistTokens = async (
-    { accessToken, refreshToken }: { accessToken: string; refreshToken: string },
+    { token, refreshToken }: { token: string; refreshToken: string },
 ): Promise<void> => {
     const path = new URL("./constants.ts", import.meta.url);
     let src = await Deno.readTextFile(path);
     src = src.replace(
         /export const TOKEN =\s*"[^"]*";/,
-        `export const TOKEN =\n    "Bearer ${accessToken}";`,
+        `export const TOKEN =\n    "${token}";`,
     );
     src = src.replace(
         /export const REFRESH_TOKEN =\s*"[^"]*";/,
-        `export const REFRESH_TOKEN = "${refreshToken}";`,
+        `export const REFRESH_TOKEN =\n    "${refreshToken}";`,
     );
     await Deno.writeTextFile(path, src);
 };
