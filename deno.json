@@ -4,8 +4,7 @@
     "daily": "deno run --unstable-http --allow-net daily.ts",
     "pick": "deno run --unstable-http --allow-net --allow-env picker.ts",
     "check": "deno run --unstable-http --allow-net picks_check.ts",
-    "test": "deno test --unstable-http --allow-net --allow-env tests/",
-    "morning": "deno run --unstable-http --allow-net morning_check.ts"
+    "trap": "deno run --unstable-http --allow-net trapCheck.ts"
   },
   "compilerOptions": {
     "strict": true
