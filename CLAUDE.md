@@ -65,6 +65,7 @@ Before outputting ANY entry/TP/stop: "Am I using the regime table?" If your TP% 
 - Daily delta positive AND accelerating (today > yesterday)? = Strong
 - Daily delta positive but decelerating? = Momentum fading
 - Large cumulative but negative daily delta? = Distribution, AVOID
+- **In picker but NOT in daily top 50 inflows?** → bandar negligible. Fetch numbers. Cum < 50B + delta < 0.1B = REJECT. Picker grade does NOT validate bandar presence. (STAA Jun 16: B-grade, 17.3B cum, NOT in top 500 — user called it out.)
 
 ### Red Flags (REJECT the pick)
 - Ran hard + volume declining = exhaustion
@@ -120,7 +121,8 @@ From actual SIT_OUT price action (breadth ~20%):
 14. **SIT_OUT first-hour whipsaw is real** — May 25: BRIS dipped below MA5 at open, OUT called, stock bounced +2.3%. Wait 60min before final OUT decision in SIT_OUT (not 30min). First-hour noise is maximum.
 15. **No re-entry after profit** — once TP is hit and you exit with profit, do NOT re-enter the same stock same day. The move is done. Chasing re-entry turns winners into losers. Take the P&L and move on.
 16. **TP hit = no further commentary** — once a pick hits TP, don't provide additional analysis, insight, or "what could have been." Just mark it complete and stay silent. The trade is closed.
-17. **One regime detector** — `daily` and `picker` both call `detectRegime()`; never re-derive a separate regime verdict. Two detectors that can disagree = anchoring on the looser one (e.g. DEFENSIVE TPs in a SIT_OUT market).
+17. **Picker grade ≠ bandar confirmation** — Jun 16: STAA got B-grade (bandarTrend, bandar+SM aligned, structure+) but cumulative bandar only 17.3B — NOT IN TOP 500 bandar stocks. The picker awards high grades on structure/volume signals even when bandar presence is negligible. "bandarTrend" on micro-cap bandar is meaningless noise. ALWAYS cross-reference picker picks to daily top 50 inflows. If a stock isn't there, fetch its actual bandar numbers before recommending.
+18. **One regime detector** — `daily` and `picker` both call `detectRegime()`; never re-derive a separate regime verdict. Two detectors that can disagree = anchoring on the looser one (e.g. DEFENSIVE TPs in a SIT_OUT market).
 
 # Backtest Results
 

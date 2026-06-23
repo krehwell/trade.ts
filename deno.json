@@ -3,7 +3,7 @@
     "refresh": "deno run --unstable-http --allow-net --allow-read --allow-write refresh.ts",
     "daily": "deno run --unstable-http --allow-net daily.ts",
     "pick": "deno run --unstable-http --allow-net picker.ts",
-    "analyze": "deno run --unstable-http --allow-net analyzeStock.ts",
+    "analyze": "deno run --unstable-http --allow-net analyzeStock.ts"
     "trap": "deno run --unstable-http --allow-net trapCheck.ts"
   },
   "compilerOptions": {
