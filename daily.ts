@@ -8,6 +8,7 @@
 import { fetchCandles } from "./utils/stockbitCandles.ts";
 import { fetchScreener } from "./fetchScreener.ts";
 import { ITEMS } from "./utils/screenerItems.ts";
+import { distPct, maSlope, pctChange, sma } from "./utils/indicators.ts";
 
 // ─── IHSG REGIME ────────────────────────────────────────────────────────────
 
@@ -24,19 +25,18 @@ if (!ihsg || ihsg.length === 0) {
 const closes = ihsg.map((c) => c.close);
 const n = closes.length;
 
-const ma5 = closes.slice(-5).reduce((s, v) => s + v, 0) / 5;
-const ma10 = closes.slice(-10).reduce((s, v) => s + v, 0) / 10;
-const ma20 = closes.slice(-20).reduce((s, v) => s + v, 0) / 20;
-const ma10_5dAgo = closes.slice(-15, -5).reduce((s, v) => s + v, 0) / 10;
-const ma10Slope = ((ma10 - ma10_5dAgo) / ma10_5dAgo) * 100;
+const ma5 = sma(closes, 5);
+const ma10 = sma(closes, 10);
+const ma20 = sma(closes, 20);
+const ma10Slope = maSlope(closes, 10, 5);
 
 const latest = ihsg[n - 1];
 const prev = ihsg[n - 2];
 const close = latest.close;
-const dailyChg = ((close - prev.close) / prev.close) * 100;
-const distMA20 = ((close - ma20) / ma20) * 100;
+const dailyChg = pctChange(prev.close, close);
+const distMA20 = distPct(close, ma20);
 const close10dAgo = closes[n - 11] || closes[0];
-const chg10d = ((close - close10dAgo) / close10dAgo) * 100;
+const chg10d = pctChange(close10dAgo, close);
 
 const deadCat = distMA20 < -3 && ma10Slope < 0;
 const exhaustion = chg10d > 7 && dailyChg < 0;

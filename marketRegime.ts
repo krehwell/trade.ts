@@ -1,5 +1,6 @@
 import { fetchDaily as fetchYahooDaily } from "./utils/stockbitCandles.ts";
 import { type YahooCandle } from "./utils/yahooFetch.ts";
+import { avgVolume, distPct, maSlope, pctChange, sma } from "./utils/indicators.ts";
 import { fetchScreener } from "./fetchScreener.ts";
 import { ITEMS } from "./utils/screenerItems.ts";
 import { printSubHeader } from "./utils/print.ts";
@@ -34,12 +35,6 @@ export interface RegimeResult {
     signals: string[];
 }
 
-const sma = (values: number[], period: number): number => {
-    if (values.length < period) return NaN;
-    const slice = values.slice(-period);
-    return slice.reduce((s, v) => s + v, 0) / period;
-};
-
 export const detectRegime = async (): Promise<RegimeResult> => {
     const signals: string[] = [];
     let score = 0;
@@ -62,28 +57,25 @@ export const detectRegime = async (): Promise<RegimeResult> => {
     const t = ihsgCandles[last];
     const y = ihsgCandles[last - 1];
 
-    const chg1d = (t.close - y.close) / y.close * 100;
-    const chg3d = last >= 3 ? (t.close - ihsgCandles[last - 3].close) / ihsgCandles[last - 3].close * 100 : 0;
-    const chg5d = last >= 5 ? (t.close - ihsgCandles[last - 5].close) / ihsgCandles[last - 5].close * 100 : 0;
+    const chg1d = pctChange(y.close, t.close);
+    const chg3d = last >= 3 ? pctChange(ihsgCandles[last - 3].close, t.close) : 0;
+    const chg5d = last >= 5 ? pctChange(ihsgCandles[last - 5].close, t.close) : 0;
 
     const ma5 = sma(closes, 5);
     const ma10 = sma(closes, 10);
     const ma20 = sma(closes, 20);
 
     // MA slopes: compare current to 3 days ago
-    const closes3dAgo = closes.slice(0, -3);
-    const ma5_3dAgo = sma(closes3dAgo, 5);
-    const ma10_3dAgo = sma(closes3dAgo, 10);
-    const ma5Slope = !isNaN(ma5_3dAgo) && ma5_3dAgo > 0 ? (ma5 - ma5_3dAgo) / ma5_3dAgo * 100 : 0;
-    const ma10Slope = !isNaN(ma10_3dAgo) && ma10_3dAgo > 0 ? (ma10 - ma10_3dAgo) / ma10_3dAgo * 100 : 0;
-    const distMa20 = !isNaN(ma20) && ma20 > 0 ? (t.close - ma20) / ma20 * 100 : 0;
-    const chg10d = last >= 10 ? (t.close - ihsgCandles[last - 10].close) / ihsgCandles[last - 10].close * 100 : 0;
+    const ma5Slope = maSlope(closes, 5, 3);
+    const ma10Slope = maSlope(closes, 10, 3);
+    const distMa20 = distPct(t.close, ma20);
+    const chg10d = last >= 10 ? pctChange(ihsgCandles[last - 10].close, t.close) : 0;
 
     const aboveMa5 = t.close > ma5;
     const aboveMa10 = t.close > ma10;
     const aboveMa20 = t.close > ma20;
 
-    const avgVol5 = sma(volumes.slice(0, -1), 5); // exclude today
+    const avgVol5 = avgVolume(volumes, 5, true); // exclude today
     const volRatio = avgVol5 > 0 ? t.volume / avgVol5 : 1;
 
     // IHSG scoring
