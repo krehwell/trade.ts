@@ -14,7 +14,7 @@ Daily stock picker for Indonesia Stock Exchange (IDX). Uses market regime detect
 
 Requires [Deno](https://deno.land/).
 
-1. Get a Stockbit API token (Bearer JWT) and put it in `utils/constants.ts`
+1. Get a Stockbit API token (Bearer JWT) and put it in `src/net/constants.ts`
 2. Run: `deno task daily` to get all data, then analyze
 
 ## Tasks
@@ -28,21 +28,30 @@ deno task analyze SYM  — Per-stock technical analysis (MAs, vol, structure, re
 ## Project Structure
 
 ```
-daily.ts                — RUN FIRST each session: regime + scan + top candles in one command
-picker.ts               — Automated gated scoring pipeline (regime → screener → scoring → picks)
-marketRegime.ts         — IHSG regime detector (trend + breadth + trap filters)
-fetchScreener.ts        — Stockbit screener API with auto-pagination
-fetchBrokerActivity.ts  — SM/retail broker flow across timeframes
-utils/
-  analyzeStock.ts       — Per-stock technical analysis CLI (deno task analyze SYM)
-  screenerItems.ts      — Screener filter item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
-  stockbitCandles.ts    — Candle source of record: Stockbit-first w/ Yahoo fallback (fetchCandles, fetchDaily, fetchDailyMulti)
-  yahooFetch.ts         — Yahoo Finance candles (fallback source)
-  indicators.ts         — Shared TA formulas (sma, pctChange, distPct, maSlope, avgVolume)
-  stockbitFetch.ts      — Stockbit API wrapper (auth + base URL)
-  constants.ts          — API auth token (expires ~24hrs)
-  date.ts               — Date helpers
-  print.ts              — Terminal output formatting
+# entry points (root) — run via deno task
+daily.ts                  — RUN FIRST each session: regime + scan + top candles
+picker.ts                 — Automated gated scoring pipeline (regime → screener → scoring → picks)
+analyzeStock.ts           — Per-stock technical analysis CLI (deno task analyze SYM)
+refresh.ts                — Refresh the Stockbit token (deno task refresh)
+
+src/
+  market/                 — domain logic
+    marketRegime.ts       — IHSG regime detector (trend + breadth + trap filters)
+    indicators.ts         — Shared TA formulas (sma, pctChange, distPct, maSlope, avgVolume)
+  data/                   — market data sources
+    stockbitCandles.ts    — Candle source of record: Stockbit-first w/ Yahoo fallback (fetchCandles, fetchDaily, fetchDailyMulti)
+    yahooCandles.ts       — Yahoo Finance candles (fallback source)
+    fetchScreener.ts      — Stockbit screener API with auto-pagination
+    fetchBrokerActivity.ts — SM/retail broker flow across timeframes
+    screenerItems.ts      — Screener filter item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
+  net/                    — transport, auth, config
+    stockbitFetch.ts      — Stockbit HTTP wrapper (auth + base URL, auto-refresh on 401)
+    warpClient.ts         — HTTP client (optional SOCKS proxy for VPS)
+    refreshToken.ts       — Token refresh + persist to constants.ts
+    constants.ts          — API auth tokens (access ~24h + refresh ~7d)
+  util/                   — pure helpers
+    date.ts               — Date helpers
+    print.ts              — Terminal output formatting
 ```
 
 ## Key API Notes

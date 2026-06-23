@@ -12,7 +12,7 @@ When asked to analyze or build:
 
 # Daily Workflow
 
-1. **Validate** — Check token (`utils/constants.ts`; `deno task refresh` if expired — see Token Refresh), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
+1. **Validate** — Check token (`src/net/constants.ts`; `deno task refresh` if expired — see Token Refresh), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
 2. **Regime** — Run `deno task daily`. Note regime, breadth, top inflows, candle data.
 3. **Scan** — Full market screener (top 50 by bandar), compute daily deltas, rank by flow
 4. **Analyze** — Pull candles for top flow stocks, check price action, flag traps (see Analysis Checklist below)
@@ -145,14 +145,14 @@ From actual SIT_OUT price action (breadth ~20%):
 - Deno + TypeScript (ESM imports with `.ts` extensions)
 - All function parameters as single object: `fetchX({ param1, param2 })`
 - Export interfaces for all param/return types so callers know what pass
-- Token lives in `utils/constants.ts`, no .env
+- Token lives in `src/net/constants.ts`, no .env
 - Build small reusable utilities first, compose in entry scripts
 - Keep functions flexible with sensible defaults
 - No over-engineering. No abstractions for one-time use.
 - Use native `fetch` (not node:https) — Deno has built-in
-- All Stockbit API requests via `utils/stockbitFetch.ts` (auth + base URL baked in)
-- Candles via `utils/stockbitCandles.ts` — Stockbit chartbit (near-realtime), auto-falls back to Yahoo (`utils/yahooFetch.ts`) when chartbit has no data or for index symbols. Don't import `yahooFetch` directly for candles.
-- Shared TA formulas (MA, slope, distance, avg volume) live in `utils/indicators.ts` — never re-derive them inline
+- All Stockbit API requests via `src/net/stockbitFetch.ts` (auth + base URL baked in)
+- Candles via `src/data/stockbitCandles.ts` — Stockbit chartbit (near-realtime), auto-falls back to Yahoo (`src/data/yahooCandles.ts`) when chartbit has no data or for index symbols. Don't import `yahooCandles` directly for candles.
+- Shared TA formulas (MA, slope, distance, avg volume) live in `src/market/indicators.ts` — never re-derive them inline
 
 # API Quirks
 
@@ -172,37 +172,44 @@ From actual SIT_OUT price action (breadth ~20%):
 
 # Token Refresh
 
-The auth token in `utils/constants.ts` is the **exodus** data token (`iss: STOCKBIT`, RS256, ~24h). All scanner tools use it.
+The auth token in `src/net/constants.ts` is the **exodus** data token (`iss: STOCKBIT`, RS256, ~24h). All scanner tools use it.
 
 - **Refresh endpoint:** `POST https://exodus.stockbit.com/login/refresh` with header `Authorization: Bearer <REFRESH_TOKEN>`, empty body. Returns `{ data: { access: {token, expired_at}, refresh: {token, expired_at} } }`.
 - **Refresh token** (`data.typ: refresh`, ~7d life) is NOT the access token. Source: browser localStorage key `credentialStorage` (URL-encoded JSON → `state.refresh.token`). It is stored encoded under loose keys `at`/`ar`, so read `credentialStorage` instead.
 - **SINGLE-USE + SESSION ROTATION:** each refresh invalidates BOTH old tokens (access AND refresh) and issues a new pair. The new refresh token MUST be persisted or the next call is `UNAUTHORIZED`. Because it rotates the whole session, the **bot and a browser cannot share one login** — whoever refreshes logs the other out. Give the bot its own dedicated login session.
-- **Code:** `utils/refreshToken.ts` (`refreshAccessToken` + `persistTokens`), `refresh.ts` (`deno task refresh`, has `--allow-read --allow-write`). `stockbitFetch.ts` auto-refreshes once on 401, dedupes concurrent refreshes, persists if write perms allow. Don't run two tools concurrently on an expired token — they'd double-refresh and invalidate each other.
+- **Code:** `src/net/refreshToken.ts` (`refreshAccessToken` + `persistTokens`), `refresh.ts` (`deno task refresh`, has `--allow-read --allow-write`). `stockbitFetch.ts` auto-refreshes once on 401, dedupes concurrent refreshes, persists if write perms allow. Don't run two tools concurrently on an expired token — they'd double-refresh and invalidate each other.
 - **DEAD END:** `api-sekuritas.stockbit.com/partner/eipo/access_token` returns `EIPO_PARTNER_ACCESS_TOKEN` (HS256, partner-scoped, 60s/10min) for the EIPO/trading module — NOT the exodus data token. Cannot refresh `constants.ts`.
 
 # Project Structure
 
-## Entry Points
+Layout: **entry points at root**, everything else grouped by role under `src/`.
+
+## Entry Points (root)
 - `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime via the shared `detectRegime` (**same verdict as the picker** — one source of truth, no divergent daily heuristic) → IHSG technicals + last-10 candle table → full screener scan → candles for top flow stocks.
 - `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
-- `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `constants.ts`. See Token Refresh.
+- `analyzeStock.ts` (`deno task analyze SYM`) — Per-stock technical analysis CLI: MA distances, vol ratios, structure, red flags
+- `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `src/net/constants.ts`. See Token Refresh.
 
-## Core Modules
-- `marketRegime.ts` — Regime detector (IHSG trend + breadth + trap filters) → SIT_OUT/DEFENSIVE/NORMAL/AGGRESSIVE
-- `fetchScreener.ts` — Stockbit screener API
-- `fetchBrokerActivity.ts` — SM/retail broker flow across timeframes
+## src/market — domain logic
+- `src/market/marketRegime.ts` — Regime detector (IHSG trend + breadth + trap filters) → SIT_OUT/DEFENSIVE/NORMAL/AGGRESSIVE
+- `src/market/indicators.ts` — shared TA formulas: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume` (self-check: `deno run src/market/indicators.ts`)
 
-## Utils
-- `utils/analyzeStock.ts` — Per-stock technical analysis CLI (`deno task analyze SYM`): MA distances, vol ratios, structure, red flags
-- `utils/screenerItems.ts` — Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
-- `utils/stockbitCandles.ts` — **candle source of record.** Stockbit-first with Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes are drop-in for `yahooFetch`.
-- `utils/yahooFetch.ts` — Yahoo Finance candles (fallback only): `fetchCandles` + `fetchYahooDaily` + `fetchYahooDailyMulti`
-- `utils/indicators.ts` — shared TA formulas: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume` (self-check: `deno run utils/indicators.ts`)
-- `utils/stockbitFetch.ts` — Stockbit fetch wrapper with auth (auto-refreshes on 401)
-- `utils/constants.ts` — `TOKEN` (access, ~24h) + `REFRESH_TOKEN` (~7d). See Token Refresh section.
-- `utils/refreshToken.ts` — `refreshAccessToken` (POST /login/refresh) + `persistTokens` (rewrites constants.ts)
-- `utils/date.ts` — Date helpers
-- `utils/print.ts` — Terminal output formatting
+## src/data — market data sources
+- `src/data/stockbitCandles.ts` — **candle source of record.** Stockbit-first with Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes are drop-in for `yahooCandles`.
+- `src/data/yahooCandles.ts` — Yahoo Finance candles (fallback only): `fetchCandles` + `fetchYahooDaily` + `fetchYahooDailyMulti`. (Named for its role — a candle source, peer of `stockbitCandles`, not a transport wrapper.)
+- `src/data/fetchScreener.ts` — Stockbit screener API
+- `src/data/fetchBrokerActivity.ts` — SM/retail broker flow across timeframes
+- `src/data/screenerItems.ts` — Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
+
+## src/net — transport, auth, config
+- `src/net/stockbitFetch.ts` — Stockbit fetch wrapper with auth (auto-refreshes on 401)
+- `src/net/warpClient.ts` — HTTP client; optional SOCKS proxy (enabled on VPS, commented locally)
+- `src/net/refreshToken.ts` — `refreshAccessToken` (POST /login/refresh) + `persistTokens` (rewrites `constants.ts`)
+- `src/net/constants.ts` — `TOKEN` (access, ~24h) + `REFRESH_TOKEN` (~7d). See Token Refresh section.
+
+## src/util — pure helpers
+- `src/util/date.ts` — Date helpers
+- `src/util/print.ts` — Terminal output formatting
 
 # Scoring System (picker.ts)
 

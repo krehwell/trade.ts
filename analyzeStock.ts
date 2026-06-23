@@ -4,10 +4,10 @@
  * drawdown, range position, volume trend, red flags.
  *
  * Usage: deno task analyze SYMBOL
- *   (or: deno run --unstable-http --allow-net utils/analyzeStock.ts SYMBOL)
+ *   (or: deno run --unstable-http --allow-net analyzeStock.ts SYMBOL)
  */
-import { fetchCandles } from "./stockbitCandles.ts";
-import { avgVolume, distPct, pctChange, sma } from "./indicators.ts";
+import { fetchCandles } from "./src/data/stockbitCandles.ts";
+import { avgVolume, distPct, pctChange, sma } from "./src/market/indicators.ts";
 
 const sym = Deno.args[0];
 if (!sym) { console.log("Usage: deno task analyze SYMBOL"); Deno.exit(1); }

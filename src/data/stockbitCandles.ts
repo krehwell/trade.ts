@@ -1,14 +1,14 @@
-import { fetchGET } from "./stockbitFetch.ts";
+import { fetchGET } from "../net/stockbitFetch.ts";
 import {
     type Candle,
     fetchCandles as fetchYahooCandles,
     fetchYahooDaily,
     type YahooCandle,
-} from "./yahooFetch.ts";
+} from "./yahooCandles.ts";
 
 // Stockbit-first candle fetchers (near-realtime via chartbit), with Yahoo fallback
 // when Stockbit is empty/errors or for index symbols (^JKSE etc). Drop-in replacements
-// for the equally-named yahooFetch functions — identical return shapes.
+// for the equally-named yahooCandles functions — identical return shapes.
 
 const DAY_MS = 86_400_000;
 const rangeToDays = (range: string) => parseInt(range, 10) || 30;
@@ -90,7 +90,7 @@ export const fetchCandles = async ({ symbol, range = "30d", interval = "1d" }: {
     return fetchYahooCandles({ symbol, range, interval });
 };
 
-// Drop-in for yahooFetch.fetchYahooDaily — YahooCandle[] (string dates, oldest-first).
+// Drop-in for yahooCandles.fetchYahooDaily — YahooCandle[] (string dates, oldest-first).
 export const fetchDaily = async ({ symbol, days = 60 }: {
     symbol: string;
     days?: number;
@@ -117,7 +117,7 @@ export const fetchDaily = async ({ symbol, days = 60 }: {
     return fetchYahooDaily({ symbol, days });
 };
 
-// Drop-in for yahooFetch.fetchYahooDailyMulti — per-symbol Stockbit-first w/ Yahoo fallback.
+// Drop-in for yahooCandles.fetchYahooDailyMulti — per-symbol Stockbit-first w/ Yahoo fallback.
 export const fetchDailyMulti = async ({ symbols, days = 60 }: {
     symbols: string[];
     days?: number;

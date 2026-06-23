@@ -1,9 +1,9 @@
-import { fetchDaily as fetchYahooDaily } from "./utils/stockbitCandles.ts";
-import { type YahooCandle } from "./utils/yahooFetch.ts";
-import { avgVolume, distPct, maSlope, pctChange, sma } from "./utils/indicators.ts";
-import { fetchScreener } from "./fetchScreener.ts";
-import { ITEMS } from "./utils/screenerItems.ts";
-import { printSubHeader } from "./utils/print.ts";
+import { fetchDaily as fetchYahooDaily } from "../data/stockbitCandles.ts";
+import { type YahooCandle } from "../data/yahooCandles.ts";
+import { avgVolume, distPct, maSlope, pctChange, sma } from "./indicators.ts";
+import { fetchScreener } from "../data/fetchScreener.ts";
+import { ITEMS } from "../data/screenerItems.ts";
+import { printSubHeader } from "../util/print.ts";
 
 export type Regime = "AGGRESSIVE" | "NORMAL" | "DEFENSIVE" | "SIT_OUT";
 
