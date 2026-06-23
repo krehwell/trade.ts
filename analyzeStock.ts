@@ -6,8 +6,8 @@
  * Usage: deno task analyze SYMBOL
  *   (or: deno run --unstable-http --allow-net analyzeStock.ts SYMBOL)
  */
-import { fetchCandles } from "./src/data/stockbitCandles.ts";
-import { avgVolume, distPct, pctChange, sma } from "./src/market/indicators.ts";
+import { fetchCandles } from "./data/stockbitCandles.ts";
+import { avgVolume, distPct, pctChange, sma } from "./market/indicators.ts";
 
 const sym = Deno.args[0];
 if (!sym) { console.log("Usage: deno task analyze SYMBOL"); Deno.exit(1); }
