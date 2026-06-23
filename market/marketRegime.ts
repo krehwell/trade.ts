@@ -99,7 +99,7 @@ export const detectRegime = async (): Promise<RegimeResult> => {
     else if (!aboveMa5 && !aboveMa10 && !aboveMa20) { score -= 2; signals.push("below all MAs"); }
     else if (aboveMa20 && !aboveMa5) { score -= 1; signals.push("pulling back to MAs"); }
 
-    // MA5 slope (short-term momentum direction)
+    // MA5 slope (short term momentum direction)
     if (ma5Slope > 0.3) { score += 1; signals.push("MA5 rising"); }
     else if (ma5Slope < -0.3) { score -= 1; signals.push("MA5 falling"); }
 
@@ -145,20 +145,20 @@ export const detectRegime = async (): Promise<RegimeResult> => {
     else if (breadthRatio < 0.3) { score -= 2; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying — BEARISH`); }
     else if (breadthRatio < 0.4) { score -= 1; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying — weak`); }
 
-    // Determine regime
+    // Map the cumulative score to a regime band (higher = more risk on).
     let regime: Regime;
     if (score >= 5) regime = "AGGRESSIVE";
     else if (score >= 1) regime = "NORMAL";
     else if (score >= -3) regime = "DEFENSIVE";
     else regime = "SIT_OUT";
 
-    // TRAP FILTER 1: dead cat bounce — price deep below MA20 + MA10 still falling
+    // TRAP FILTER 1: dead cat bounce.  Price deep below MA20 while MA10 still falling.
     if (distMa20 < -3 && ma10Slope < 0 && regime !== "SIT_OUT") {
         signals.push("TRAP: dead cat bounce (below MA20 + MA10 falling)");
         regime = "SIT_OUT";
     }
 
-    // TRAP FILTER 2: exhaustion — big 10d run + negative day = topping
+    // TRAP FILTER 2: exhaustion.  Big 10d run capped by a negative day = topping.
     if (chg10d > 7 && chg1d < 0 && regime !== "SIT_OUT") {
         signals.push("TRAP: exhaustion (10d run + negative day)");
         regime = "DEFENSIVE";
@@ -193,19 +193,15 @@ export const printRegime = (r: RegimeResult) => {
     console.log(`  ${regimeColors[r.regime]}>>> ${r.regime} (score: ${r.score}) <<<${reset}`);
     console.log();
 
-    // IHSG
     console.log(`  IHSG: ${r.ihsg.close.toFixed(0)}`);
     console.log(`    Today: ${r.ihsg.chg1d >= 0 ? "+" : ""}${r.ihsg.chg1d.toFixed(2)}% | 3d: ${r.ihsg.chg3d >= 0 ? "+" : ""}${r.ihsg.chg3d.toFixed(2)}% | 5d: ${r.ihsg.chg5d >= 0 ? "+" : ""}${r.ihsg.chg5d.toFixed(2)}%`);
     console.log(`    MA5: ${r.ihsg.ma5.toFixed(0)} ${r.ihsg.aboveMa5 ? "ABOVE" : "BELOW"} | MA10: ${r.ihsg.ma10.toFixed(0)} ${r.ihsg.aboveMa10 ? "ABOVE" : "BELOW"} | MA20: ${r.ihsg.ma20.toFixed(0)} ${r.ihsg.aboveMa20 ? "ABOVE" : "BELOW"}`);
     console.log(`    MA5 slope: ${r.ihsg.ma5Slope >= 0 ? "+" : ""}${r.ihsg.ma5Slope.toFixed(2)}% | Vol: ${r.ihsg.volRatio.toFixed(1)}x avg`);
 
-    // Breadth
     console.log(`  Breadth: ${r.breadth.bandarBuying} buying / ${r.breadth.bandarSelling} selling (${(r.breadth.ratio * 100).toFixed(0)}% buy) of ${r.breadth.totalLiquid} liquid`);
-
-    // Signals
     console.log(`  Signals: ${r.signals.join(" | ")}`);
 
-    // Recommendation
+    // Action the trader should take for this regime.
     console.log();
     switch (r.regime) {
         case "AGGRESSIVE":

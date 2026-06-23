@@ -1,3 +1,6 @@
+// Broker activity from Stockbit: net buy/sell value per stock for a set of brokers
+// over a date range.  Summing a smart money broker set vs a retail set is how the
+// picker measures institutional vs retail flow.  Max 200 buy + 200 sell rows per call.
 import { fmt, parseTFDays, subDays } from "../util/date.ts";
 import { fetchGET } from "../net/stockbitFetch.ts";
 

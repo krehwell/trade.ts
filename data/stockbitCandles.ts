@@ -6,9 +6,9 @@ import {
     type YahooCandle,
 } from "./yahooCandles.ts";
 
-// Stockbit-first candle fetchers (near-realtime via chartbit), with Yahoo fallback
-// when Stockbit is empty/errors or for index symbols (^JKSE etc). Drop-in replacements
-// for the equally-named yahooCandles functions — identical return shapes.
+// Stockbit first candle fetchers (near realtime via chartbit), with Yahoo fallback
+// when Stockbit is empty/errors or for index symbols (^JKSE etc).  Drop in replacements
+// for the equally named yahooCandles functions, with identical return shapes.
 
 const DAY_MS = 86_400_000;
 const rangeToDays = (range: string) => parseInt(range, 10) || 30;
@@ -16,7 +16,7 @@ const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 // Yahoo wants "BBCA.JK"; chartbit wants the bare ticker "BBCA".
 const bareTicker = (symbol: string) => symbol.replace(/\.jk$/i, "").toUpperCase();
 
-// Raw chartbit daily rows (newest-first), or [] if no data / error.
+// Raw chartbit daily rows (newest first), or [] if no data / error.
 const rawDaily = async (symbol: string, days: number): Promise<Record<string, unknown>[]> => {
     const now = Date.now();
     const json = await fetchGET({
@@ -32,8 +32,8 @@ const fetchStockbitDaily = async (symbol: string, days: number): Promise<Candle[
     const raw = await rawDaily(symbol, days);
     return raw
         .map((c): Candle => ({
-            // c.unixdate is 00:00 WIB → previous UTC day; anchor to the calendar
-            // day at 00:00Z so day-labels match Yahoo's daily candles.
+            // c.unixdate is 00:00 WIB -> previous UTC day; anchor to the calendar
+            // day at 00:00Z so day labels match Yahoo's daily candles.
             date: Date.parse(`${c.date}T00:00:00Z`) / 1000,
             open: Number(c.open),
             high: Number(c.high),
@@ -41,7 +41,7 @@ const fetchStockbitDaily = async (symbol: string, days: number): Promise<Candle[
             close: Number(c.close),
             volume: Number(c.volume),
         }))
-        .reverse(); // chartbit is newest-first; match Yahoo's oldest-first
+        .reverse(); // chartbit is newest first; match Yahoo's oldest first
 };
 
 const fetchStockbitIntraday = async (symbol: string, days: number, minutes: number): Promise<Candle[]> => {
@@ -74,7 +74,7 @@ export const fetchCandles = async ({ symbol, range = "30d", interval = "1d" }: {
     range?: string;
     interval?: string;
 }): Promise<Candle[]> => {
-    // Index symbols aren't on chartbit per-stock — go straight to Yahoo.
+    // Index symbols aren't on chartbit per stock, so go straight to Yahoo.
     if (!symbol.startsWith("^")) {
         try {
             const days = rangeToDays(range);
@@ -90,7 +90,7 @@ export const fetchCandles = async ({ symbol, range = "30d", interval = "1d" }: {
     return fetchYahooCandles({ symbol, range, interval });
 };
 
-// Drop-in for yahooCandles.fetchYahooDaily — YahooCandle[] (string dates, oldest-first).
+// Drop in for yahooCandles.fetchYahooDaily: YahooCandle[] (string dates, oldest first).
 export const fetchDaily = async ({ symbol, days = 60 }: {
     symbol: string;
     days?: number;
@@ -117,7 +117,7 @@ export const fetchDaily = async ({ symbol, days = 60 }: {
     return fetchYahooDaily({ symbol, days });
 };
 
-// Drop-in for yahooCandles.fetchYahooDailyMulti — per-symbol Stockbit-first w/ Yahoo fallback.
+// Drop in for yahooCandles.fetchYahooDailyMulti: per symbol Stockbit first with Yahoo fallback.
 export const fetchDailyMulti = async ({ symbols, days = 60 }: {
     symbols: string[];
     days?: number;

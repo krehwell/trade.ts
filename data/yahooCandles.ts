@@ -1,3 +1,5 @@
+// Yahoo Finance candles, the fallback source when Stockbit chartbit has no data.
+// Two shapes: Candle carries a unix timestamp date, YahooCandle an ISO calendar date string.
 export interface YahooCandle {
     date: string;
     open: number;

@@ -17,8 +17,8 @@ console.log("━".repeat(70));
 console.log("  IHSG REGIME CHECK");
 console.log("━".repeat(70));
 
-// Authoritative regime — the SAME detector the picker uses (IHSG trend + breadth
-// + trap filters). Single source of truth; do not re-derive a separate verdict here.
+// Authoritative regime: the SAME detector the picker uses (IHSG trend + breadth
+// + trap filters).  Single source of truth, so don't compute a separate verdict here.
 const reg = await detectRegime();
 printRegime(reg);
 
