@@ -1,4 +1,7 @@
-import { fetchPOST } from "./utils/stockbitFetch.ts";
+// Stockbit screener API.  Quirks worth knowing:
+//   results only include the columns listed in `sequence` (not every filter),
+//   the `name` field must be non empty, and there is no date param (always current data).
+import { fetchPOST } from "../net/stockbitFetch.ts";
 
 export interface ScreenerFilter {
     id: number;

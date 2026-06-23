@@ -1,3 +1,4 @@
+// Small date helpers: ISO day strings and day arithmetic for building API date ranges.
 export const fmt = (d: Date): string => d.toISOString().slice(0, 10);
 
 export const today = (): string => fmt(new Date());

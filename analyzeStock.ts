@@ -1,14 +1,16 @@
 /**
- * Per-stock technical analysis utility.
+ * Per stock technical analysis utility.
  * Pulls 60d candles, computes: MA distances, volume ratios, price structure,
  * drawdown, range position, volume trend, red flags.
  *
- * Usage: deno run --allow-net utils/analyzeStock.ts SYMBOL
+ * Usage: deno task analyze SYMBOL
+ *   (or: deno run --unstable-http --allow-net analyzeStock.ts SYMBOL)
  */
-import { fetchCandles } from "./yahooFetch.ts";
+import { fetchCandles } from "./data/stockbitCandles.ts";
+import { avgVolume, distPct, pctChange, sma } from "./market/indicators.ts";
 
 const sym = Deno.args[0];
-if (!sym) { console.log("Usage: deno run --allow-net utils/analyzeStock.ts SYMBOL"); Deno.exit(1); }
+if (!sym) { console.log("Usage: deno task analyze SYMBOL"); Deno.exit(1); }
 
 const candles = await fetchCandles({ symbol: sym, range: "60d", interval: "1d" });
 if (!candles || candles.length < 10) { console.log(`${sym}: insufficient data`); Deno.exit(1); }
@@ -17,19 +19,22 @@ const c = candles;
 const n = c.length;
 const last = c[n - 1];
 
+const closes = c.map((x) => x.close);
+const vols = c.map((x) => x.volume);
+
 // Moving averages
-const ma5 = c.slice(-5).reduce((s, x) => s + x.close, 0) / 5;
-const ma10 = c.slice(-10).reduce((s, x) => s + x.close, 0) / 10;
-const ma20 = c.slice(-20).reduce((s, x) => s + x.close, 0) / 20;
+const ma5 = sma(closes, 5);
+const ma10 = sma(closes, 10);
+const ma20 = sma(closes, 20);
 
 // Price metrics
-const chg1d = ((last.close - c[n - 2].close) / c[n - 2].close) * 100;
-const chg3d = n >= 4 ? ((last.close - c[n - 4].close) / c[n - 4].close) * 100 : 0;
-const chg5d = n >= 6 ? ((last.close - c[n - 6].close) / c[n - 6].close) * 100 : 0;
+const chg1d = pctChange(c[n - 2].close, last.close);
+const chg3d = n >= 4 ? pctChange(c[n - 4].close, last.close) : 0;
+const chg5d = n >= 6 ? pctChange(c[n - 6].close, last.close) : 0;
 
-// Volume
-const avgVol5 = c.slice(-6, -1).reduce((s, x) => s + x.volume, 0) / 5;
-const avgVol10 = c.slice(-11, -1).reduce((s, x) => s + x.volume, 0) / 10;
+// Volume (exclude today's in progress bar)
+const avgVol5 = avgVolume(vols, 5, true);
+const avgVol10 = avgVolume(vols, 10, true);
 const volRatio5 = last.volume / (avgVol5 || 1);
 const volRatio10 = last.volume / (avgVol10 || 1);
 
@@ -85,9 +90,9 @@ console.log(JSON.stringify({
     ma5: +ma5.toFixed(0),
     ma10: +ma10.toFixed(0),
     ma20: +ma20.toFixed(0),
-    distMA5: +((last.close - ma5) / ma5 * 100).toFixed(1),
-    distMA10: +((last.close - ma10) / ma10 * 100).toFixed(1),
-    distMA20: +((last.close - ma20) / ma20 * 100).toFixed(1),
+    distMA5: +distPct(last.close, ma5).toFixed(1),
+    distMA10: +distPct(last.close, ma10).toFixed(1),
+    distMA20: +distPct(last.close, ma20).toFixed(1),
     volRatio5: +volRatio5.toFixed(1),
     volRatio10: +volRatio10.toFixed(1),
     volTrend,
