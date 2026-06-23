@@ -1,12 +1,12 @@
 /**
  * Improved daily pick analyzer.
  *
- * Lessons from backtesting Apr 21-23:
- * - Winners were momentum runners that KEPT running (COAL +34%, BDMN +25%, BAIK +20%)
- * - "Overextended" stocks continued. Penalizing them was wrong.
- * - Volume spikes marked CONTINUATION, not exhaustion, when paired with bandar accumulation
- * - Conservative "safe" picks (LPPF, DMAS, OMED) went nowhere (+0% avg)
- * - The edge is: bandar accumulation + volume breakout + price momentum in small/mid caps
+ * Lessons from backtesting (Apr 21 to 23):
+ *   Winners were momentum runners that KEPT running (COAL +34%, BDMN +25%, BAIK +20%).
+ *   "Overextended" stocks continued, so penalizing them was wrong.
+ *   Volume spikes marked CONTINUATION not exhaustion when paired with bandar accumulation.
+ *   Conservative "safe" picks (LPPF, DMAS, OMED) went nowhere (+0% avg).
+ *   The edge: bandar accumulation + volume breakout + price momentum in small/mid caps.
  */
 
 import { fetchScreener, type ScreenerStock } from "./data/fetchScreener.ts";
@@ -95,14 +95,15 @@ interface Candidate {
     confirmations: string[];    // only counted if foundation passes
     contradictions: string[];   // vetoes that downgrade
     grade: "A" | "B" | "C" | "D" | "REJECT";
-    score: number;              // confirmations - contradictions (only for sorting within grade)
+    score: number;              // confirmations minus contradictions (only for sorting within grade)
     signals: string[];          // all signals for display
 }
 
 async function main() {
     printHeader(`IMPROVED ANALYZER — ${today()}`);
 
-    // Step 0: Market regime check
+    // Regime gate: a hostile market (SIT_OUT) overrides every stock level signal,
+    // so bail before doing any expensive per stock work.
     const regime = await detectRegime();
     printRegime(regime);
 
@@ -111,7 +112,7 @@ async function main() {
         return;
     }
 
-    // Step 1: Screener — get bandar data for all liquid stocks with bandar buying
+    // Bandar (smart money) data for every liquid stock that's net bought today.
     printSubHeader("Step 1: Screener with bandar data");
     const bandarDetailStocks = await fetchScreenerWithColumns({
         filters: [
@@ -129,11 +130,11 @@ async function main() {
     });
     console.log(`  Bandar buying today: ${bandarDetailStocks.length} stocks`);
 
-    // Build lookup from screener
+    // Index screener rows by symbol so we can join them with candle data later.
     const screenerMap = new Map<string, ScreenerStock>();
     for (const s of bandarDetailStocks) screenerMap.set(s.symbol, s);
 
-    // Step 3: Get SM broker flow for top candidates
+    // Smart money broker net flow (1d + 1w).  Used for bandar/SM confluence checks.
     printSubHeader("Step 2: SM Broker flow");
     const smFlows = await fetchBrokerActivityMultiTF({
         brokers: SM_BROKERS,
@@ -141,7 +142,7 @@ async function main() {
         timeframes: ["1d", "1w"],
     });
 
-    // Step 4: Retail broker flow (for divergence detection)
+    // Retail (local broker) flow.  Spots retail selling into smart money buying.
     const allBrokers = await fetchTopBrokers();
     const retailCodes = allBrokers
         .filter((b) => b.group === "BROKER_GROUP_LOCAL")
@@ -153,13 +154,13 @@ async function main() {
         to: today(),
     });
 
-    // Step 5: Yahoo candle data for price/volume analysis
-    printSubHeader("Step 3: Price & volume data (Yahoo)");
+    // Daily candles (Stockbit first, Yahoo fallback) for price/volume structure.
+    printSubHeader("Step 3: Price & volume data");
     const symbols = bandarDetailStocks.map(s => s.symbol);
     console.log(`  Fetching candles for ${symbols.length} bandar-buying stocks...`);
     const candles = await fetchYahooDailyMulti({ symbols, days: 30 });
 
-    // Step 6: Score everything
+    // Score each candidate: foundation gate -> confirmations -> contradictions -> grade.
     printSubHeader("Step 4: Scoring");
     const candidates: Candidate[] = [];
 
@@ -173,41 +174,40 @@ async function main() {
         const t = c[last]; // today
         const y = c[last - 1]; // yesterday
 
-        // Price metrics
+        // Price change over 1/3/5 trading days.
         const chg1d = (t.close - y.close) / y.close * 100;
         const chg3d = last >= 3 ? (t.close - c[last - 3].close) / c[last - 3].close * 100 : 0;
         const chg5d = last >= 5 ? (t.close - c[last - 5].close) / c[last - 5].close * 100 : 0;
 
-        // Volume metrics
+        // Today's volume vs the trailing 5d/10d average (today excluded from the average).
         const avgVol5 = c.slice(-6, -1).reduce((s, x) => s + x.volume, 0) / 5;
         const avgVol10 = c.slice(-11, -1).reduce((s, x) => s + x.volume, 0) / Math.min(10, c.length - 1);
         const volRatio5 = t.volume / (avgVol5 || 1);
         const volRatio10 = t.volume / (avgVol10 || 1);
 
-        // Volume trend (5d slope)
+        // Volume direction over 5 days: >0 expanding, <0 contracting.
         const vols5 = c.slice(-5).map(x => x.volume);
         const volTrend = vols5.length >= 2 ? (vols5[vols5.length - 1] - vols5[0]) / (vols5[0] || 1) : 0;
 
-        // Price position in 10d range
+        // Where today's close sits in the 10-day range (0 = at the low, 1 = at the high).
         const highs10 = c.slice(-10).map(x => x.high);
         const lows10 = c.slice(-10).map(x => x.low);
         const high10 = Math.max(...highs10);
         const low10 = Math.min(...lows10);
         const rangePosition = high10 !== low10 ? (t.close - low10) / (high10 - low10) : 0.5;
 
-        // Gap up?
         const gapUp = t.open > y.close;
 
-        // Close near high?
+        // Closed in the top 30% of today's range = buyers in control.
         const todayRange = t.high - t.low;
         const closedNearHigh = todayRange > 0 ? (t.close - t.low) / todayRange > 0.7 : false;
 
-        // Higher lows 3d?
+        // Three straight higher lows = a building uptrend.
         const higher_lows_3d = last >= 2 &&
             c[last].low >= c[last - 1].low &&
             c[last - 1].low >= c[last - 2].low;
 
-        // Screener data (results keyed by item ID number)
+        // Screener results are keyed by numeric item ID (see screenerItems.ts).
         const r = scrData.results;
         const price = r[ITEMS.PRICE] || t.close;
         const marketCap = r[ITEMS.MARKET_CAP] || 0;
@@ -222,8 +222,8 @@ async function main() {
         const smFlow1d = smFlows["1d"]?.[sym] ?? 0;
         const smFlow1w = smFlows["1w"]?.[sym] ?? 0;
 
-        // --- GATED SCORING ---
-        // Foundation → Confirmation → Contradiction cross-check
+        // === GATED SCORING ===
+        // Foundation -> Confirmation -> Contradiction cross check
         const foundation: string[] = [];
         const confirmations: string[] = [];
         const contradictions: string[] = [];
@@ -244,13 +244,13 @@ async function main() {
             foundation.push("bandarAccDist+");
         }
 
-        // No foundation → reject immediately
+        // No foundation -> reject immediately
         if (foundation.length === 0) {
             continue; // skip this stock entirely
         }
 
-        // ═══ CONFIRMATIONS (cross-validated pairs) ═══
-        // C1: Volume confirms price — high vol + close near high = real buying
+        // ═══ CONFIRMATIONS (cross validated pairs) ═══
+        // C1: Volume confirms price.  High vol + close near high = real buying.
         if (volRatio5 > 1.5 && closedNearHigh) {
             confirmations.push(`vol${volRatio5.toFixed(1)}x+closeHigh`);
         }
@@ -266,19 +266,19 @@ async function main() {
         if (chg1d > 2 && volRatio5 > 1.5) {
             confirmations.push(`+${chg1d.toFixed(1)}%+vol`);
         }
-        // C5: Retail divergence — retail selling while bandar buying
+        // C5: Retail divergence: retail selling while bandar buying.
         if (retail1w < 0 && bandarValue > 0 && smFlow1w >= 0) {
             confirmations.push("retailDiv");
         }
-        // C6: Price structure — higher lows + close near high = building
+        // C6: Price structure: higher lows + close near high = building.
         if (higher_lows_3d && closedNearHigh) {
             confirmations.push("structure+");
         }
-        // C7: Bandar acceleration with volume — today > yesterday AND vol confirms
+        // C7: Bandar acceleration with volume: today > yesterday AND vol confirms.
         if (bandarValue > bandarPrev && bandarPrev > 0 && volRatio5 > 1.2) {
             confirmations.push("bandarAccel+vol");
         }
-        // C8: Multi-day momentum confirmed by bandar trend
+        // C8: Multi day momentum confirmed by bandar trend
         if (chg3d > 3 && bandarValue > bandarMA10 && bandarMA10 > 0) {
             confirmations.push("momentum+bandarTrend");
         }
@@ -304,7 +304,7 @@ async function main() {
         if (gapUp && chg1d < -1) {
             contradictions.push("gapRejection");
         }
-        // X6: Volume declining multi-day while price rising = unsustainable
+        // X6: Volume declining multi day while price rising = unsustainable
         if (chg3d > 5 && volTrend < -0.3) {
             contradictions.push("priceUp+volFading=WEAK");
         }
@@ -390,7 +390,7 @@ async function main() {
         limit: 30,
     });
 
-    // Regime-aware pick count
+    // Regime aware pick count
     const maxPicks = regime.regime === "AGGRESSIVE" ? 10 : regime.regime === "NORMAL" ? 7 : 3;
     printSubHeader(`DETAILED VIEW — Top ${maxPicks} (regime: ${regime.regime})`);
     for (const c of candidates.slice(0, maxPicks)) {

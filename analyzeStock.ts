@@ -1,5 +1,5 @@
 /**
- * Per-stock technical analysis utility.
+ * Per stock technical analysis utility.
  * Pulls 60d candles, computes: MA distances, volume ratios, price structure,
  * drawdown, range position, volume trend, red flags.
  *
@@ -32,7 +32,7 @@ const chg1d = pctChange(c[n - 2].close, last.close);
 const chg3d = n >= 4 ? pctChange(c[n - 4].close, last.close) : 0;
 const chg5d = n >= 6 ? pctChange(c[n - 6].close, last.close) : 0;
 
-// Volume (exclude today's in-progress bar)
+// Volume (exclude today's in progress bar)
 const avgVol5 = avgVolume(vols, 5, true);
 const avgVol10 = avgVolume(vols, 10, true);
 const volRatio5 = last.volume / (avgVol5 || 1);

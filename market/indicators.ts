@@ -1,19 +1,19 @@
-// Shared technical-analysis formulas. All array inputs are chronological
-// (oldest-first), matching the candle order returned by the candle fetchers.
+// Shared technical analysis formulas.  All array inputs are chronological
+// (oldest first), matching the candle order returned by the candle fetchers.
 
-// Simple moving average of the last `period` values. NaN if not enough data.
+// Simple moving average of the last `period` values.  NaN if not enough data.
 export const sma = (values: number[], period: number): number =>
     values.length < period ? NaN : values.slice(-period).reduce((s, v) => s + v, 0) / period;
 
-// Percent change from `from` to `to`. 0 when `from` is non-positive or NaN
-// (guards div-by-zero and propagates "no data" as a neutral 0).
+// Percent change from `from` to `to`.  Returns 0 when `from` is non positive or NaN
+// (guards divide by zero and treats "no data" as a neutral 0).
 export const pctChange = (from: number, to: number): number =>
     from > 0 ? ((to - from) / from) * 100 : 0;
 
 // Distance of a price from a moving average, in %.
 export const distPct = (price: number, ma: number): number => pctChange(ma, price);
 
-// % change of SMA(period) now vs `lookback` bars ago. 0 if insufficient data.
+// % change of SMA(period) now vs `lookback` bars ago.  0 if insufficient data.
 export const maSlope = (values: number[], period: number, lookback: number): number => {
     const now = sma(values, period);
     const past = sma(values.slice(0, -lookback), period);
@@ -21,7 +21,7 @@ export const maSlope = (values: number[], period: number, lookback: number): num
 };
 
 // Average volume over `period` bars, optionally excluding the latest
-// (in-progress) bar — use excludeLast=true during market hours.
+// (in progress) bar.  Pass excludeLast=true during market hours.
 export const avgVolume = (volumes: number[], period: number, excludeLast = false): number =>
     sma(excludeLast ? volumes.slice(0, -1) : volumes, period);
 

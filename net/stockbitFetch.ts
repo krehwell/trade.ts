@@ -4,12 +4,12 @@ import { persistTokens, refreshAccessToken } from "./refreshToken.ts";
 
 const BASE = "https://exodus.stockbit.com";
 
-// Mutable in-memory auth header so a refresh mid-run takes effect immediately.
+// Mutable in memory auth header so a refresh mid run takes effect immediately.
 let authToken = TOKEN;
 let refreshing: Promise<void> | null = null;
 
 // On 401: refresh the access token once (deduped across concurrent calls),
-// persist to constants.ts if write perms allow, otherwise keep in-memory.
+// persist to constants.ts if write perms allow, otherwise keep it in memory.
 const ensureFreshAuth = (): Promise<void> => {
     if (!refreshing) {
         refreshing = (async () => {
@@ -18,7 +18,7 @@ const ensureFreshAuth = (): Promise<void> => {
             try {
                 await persistTokens({ token: t.token, refreshToken: t.refreshToken });
             } catch (_) {
-                // no --allow-write/read: refreshed token stays in-memory for this run
+                // no --allow-write/read: refreshed token stays in memory for this run
             }
         })().finally(() => {
             refreshing = null;
