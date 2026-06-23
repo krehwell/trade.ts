@@ -1,4 +1,4 @@
-import { warpClient } from "../lib/warpClient.ts";
+import { warpClient } from "./warpClient.ts";
 import { TOKEN } from "./constants.ts";
 import { persistTokens, refreshAccessToken } from "./refreshToken.ts";
 

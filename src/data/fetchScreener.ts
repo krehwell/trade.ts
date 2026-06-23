@@ -1,4 +1,4 @@
-import { fetchPOST } from "./utils/stockbitFetch.ts";
+import { fetchPOST } from "../net/stockbitFetch.ts";
 
 export interface ScreenerFilter {
     id: number;

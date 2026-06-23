@@ -5,11 +5,11 @@
  * Usage: deno task daily
  */
 
-import { fetchCandles } from "./utils/stockbitCandles.ts";
-import { fetchScreener } from "./fetchScreener.ts";
-import { ITEMS } from "./utils/screenerItems.ts";
-import { distPct, maSlope, pctChange, sma } from "./utils/indicators.ts";
-import { detectRegime, printRegime } from "./marketRegime.ts";
+import { fetchCandles } from "./src/data/stockbitCandles.ts";
+import { fetchScreener } from "./src/data/fetchScreener.ts";
+import { ITEMS } from "./src/data/screenerItems.ts";
+import { distPct, maSlope, pctChange, sma } from "./src/market/indicators.ts";
+import { detectRegime, printRegime } from "./src/market/marketRegime.ts";
 
 // ─── IHSG REGIME ────────────────────────────────────────────────────────────
 

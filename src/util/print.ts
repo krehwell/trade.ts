@@ -123,7 +123,7 @@ export const printFlowSummary = ({
 
 // --- Broker flow table ---
 
-import type { StockFlow } from "../fetchBrokerActivity.ts";
+import type { StockFlow } from "../data/fetchBrokerActivity.ts";
 
 export const printFlowTable = ({
     title,

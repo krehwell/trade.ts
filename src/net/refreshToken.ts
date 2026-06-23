@@ -1,4 +1,4 @@
-import { warpClient } from "../lib/warpClient.ts";
+import { warpClient } from "./warpClient.ts";
 import { REFRESH_TOKEN } from "./constants.ts";
 
 const BASE = "https://exodus.stockbit.com";
@@ -42,7 +42,7 @@ export const refreshAccessToken = async (
     };
 };
 
-// Rewrite utils/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
+// Rewrite src/net/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
 // Both args are full "Bearer ..." strings and are written verbatim.
 export const persistTokens = async (
     { token, refreshToken }: { token: string; refreshToken: string },
