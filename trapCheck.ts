@@ -17,8 +17,6 @@
  *   >= 80   SKIP   stand aside, the move is a trap
  *
  * Usage: deno task trap
- *
- * TEMPORARY: remove if unused.  Kel, just say "hapus trap check" and it's gone.
  */
 
 import { detectRegime } from "./market/marketRegime.ts";
