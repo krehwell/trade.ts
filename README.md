@@ -23,6 +23,7 @@ Requires [Deno](https://deno.land/).
 deno task daily        — RUN FIRST: regime + full screener scan + candles for top flow stocks
 deno task pick         — Automated gated scoring pipeline
 deno task analyze SYM  — Per-stock technical analysis (MAs, vol, structure, red flags)
+deno task trap         — Premarket trap detector (TEMPORARY)
 ```
 
 ## Project Structure
