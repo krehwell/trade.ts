@@ -3,13 +3,14 @@
  * Pulls 60d candles, computes: MA distances, volume ratios, price structure,
  * drawdown, range position, volume trend, red flags.
  *
- * Usage: deno run --allow-net utils/analyzeStock.ts SYMBOL
+ * Usage: deno task analyze SYMBOL
+ *   (or: deno run --unstable-http --allow-net utils/analyzeStock.ts SYMBOL)
  */
 import { fetchCandles } from "./stockbitCandles.ts";
 import { avgVolume, distPct, pctChange, sma } from "./indicators.ts";
 
 const sym = Deno.args[0];
-if (!sym) { console.log("Usage: deno run --allow-net utils/analyzeStock.ts SYMBOL"); Deno.exit(1); }
+if (!sym) { console.log("Usage: deno task analyze SYMBOL"); Deno.exit(1); }
 
 const candles = await fetchCandles({ symbol: sym, range: "60d", interval: "1d" });
 if (!candles || candles.length < 10) { console.log(`${sym}: insufficient data`); Deno.exit(1); }

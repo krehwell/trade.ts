@@ -120,6 +120,7 @@ From actual SIT_OUT price action (breadth ~20%):
 14. **SIT_OUT first-hour whipsaw is real** — May 25: BRIS dipped below MA5 at open, OUT called, stock bounced +2.3%. Wait 60min before final OUT decision in SIT_OUT (not 30min). First-hour noise is maximum.
 15. **No re-entry after profit** — once TP is hit and you exit with profit, do NOT re-enter the same stock same day. The move is done. Chasing re-entry turns winners into losers. Take the P&L and move on.
 16. **TP hit = no further commentary** — once a pick hits TP, don't provide additional analysis, insight, or "what could have been." Just mark it complete and stay silent. The trade is closed.
+17. **One regime detector** — `daily` and `picker` both call `detectRegime()`; never re-derive a separate regime verdict. Two detectors that can disagree = anchoring on the looser one (e.g. DEFENSIVE TPs in a SIT_OUT market).
 
 # Backtest Results
 
@@ -150,7 +151,8 @@ From actual SIT_OUT price action (breadth ~20%):
 - No over-engineering. No abstractions for one-time use.
 - Use native `fetch` (not node:https) — Deno has built-in
 - All Stockbit API requests via `utils/stockbitFetch.ts` (auth + base URL baked in)
-- Yahoo Finance candles via `utils/yahooFetch.ts` (Stockbit chartbit paywalled)
+- Candles via `utils/stockbitCandles.ts` — Stockbit chartbit (near-realtime), auto-falls back to Yahoo (`utils/yahooFetch.ts`) when chartbit has no data or for index symbols. Don't import `yahooFetch` directly for candles.
+- Shared TA formulas (MA, slope, distance, avg volume) live in `utils/indicators.ts` — never re-derive them inline
 
 # API Quirks
 
@@ -161,7 +163,11 @@ From actual SIT_OUT price action (breadth ~20%):
 - Screener `name` field must be non-empty (use `"screen"`)
 - Screener has NO date parameter — always returns current data
 - Broker activity returns max 200 buy + 200 sell per request
-- Chartbit PAYWALLED for individual stocks — only IHSG index works
+- Chartbit serves per-stock candles again (no longer paywalled): `GET /chartbit/{TICKER}/price/daily` and `/intraday`
+- Chartbit daily `from`/`to` are `YYYY-MM-DD` with **from=newer, to=older** (counterintuitive); intraday `from`/`to` are unix seconds + `minutes_multiplier`
+- Chartbit ticker is the **bare** symbol (`BBCA`); Yahoo wants `.JK` (`BBCA.JK`) — `stockbitCandles.ts` normalizes both, and routes index symbols (`^JKSE`) straight to Yahoo
+- Chartbit daily `unixdate` is 00:00 WIB (= previous UTC day) — `stockbitCandles.ts` anchors to the calendar date so day-labels match Yahoo
+- A few illiquid/suspended tickers have no chartbit data — covered by the Yahoo fallback
 - IHSG Yahoo ticker: `^JKSE` | IDX stocks: auto-appended `.JK`
 
 # Token Refresh
@@ -177,9 +183,8 @@ The auth token in `utils/constants.ts` is the **exodus** data token (`iss: STOCK
 # Project Structure
 
 ## Entry Points
-- `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime check → full screener scan → candles for top flow stocks.
+- `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime via the shared `detectRegime` (**same verdict as the picker** — one source of truth, no divergent daily heuristic) → IHSG technicals + last-10 candle table → full screener scan → candles for top flow stocks.
 - `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
-- `picks_check.ts` (`deno task check`) — Quick candle check for watchlist + IHSG
 - `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `constants.ts`. See Token Refresh.
 
 ## Core Modules
@@ -188,8 +193,11 @@ The auth token in `utils/constants.ts` is the **exodus** data token (`iss: STOCK
 - `fetchBrokerActivity.ts` — SM/retail broker flow across timeframes
 
 ## Utils
+- `utils/analyzeStock.ts` — Per-stock technical analysis CLI (`deno task analyze SYM`): MA distances, vol ratios, structure, red flags
 - `utils/screenerItems.ts` — Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
-- `utils/yahooFetch.ts` — `fetchCandles` (range/interval) + `fetchYahooDaily` (days) + `fetchYahooDailyMulti`
+- `utils/stockbitCandles.ts` — **candle source of record.** Stockbit-first with Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes are drop-in for `yahooFetch`.
+- `utils/yahooFetch.ts` — Yahoo Finance candles (fallback only): `fetchCandles` + `fetchYahooDaily` + `fetchYahooDailyMulti`
+- `utils/indicators.ts` — shared TA formulas: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume` (self-check: `deno run utils/indicators.ts`)
 - `utils/stockbitFetch.ts` — Stockbit fetch wrapper with auth (auto-refreshes on 401)
 - `utils/constants.ts` — `TOKEN` (access, ~24h) + `REFRESH_TOKEN` (~7d). See Token Refresh section.
 - `utils/refreshToken.ts` — `refreshAccessToken` (POST /login/refresh) + `persistTokens` (rewrites constants.ts)

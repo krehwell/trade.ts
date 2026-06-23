@@ -9,6 +9,7 @@ import { fetchCandles } from "./utils/stockbitCandles.ts";
 import { fetchScreener } from "./fetchScreener.ts";
 import { ITEMS } from "./utils/screenerItems.ts";
 import { distPct, maSlope, pctChange, sma } from "./utils/indicators.ts";
+import { detectRegime, printRegime } from "./marketRegime.ts";
 
 // ─── IHSG REGIME ────────────────────────────────────────────────────────────
 
@@ -16,62 +17,38 @@ console.log("━".repeat(70));
 console.log("  IHSG REGIME CHECK");
 console.log("━".repeat(70));
 
+// Authoritative regime — the SAME detector the picker uses (IHSG trend + breadth
+// + trap filters). Single source of truth; do not re-derive a separate verdict here.
+const reg = await detectRegime();
+printRegime(reg);
+
+// Supplementary IHSG technicals + recent candle table (detail printRegime omits).
 const ihsg = await fetchCandles({ symbol: "^JKSE", range: "60d", interval: "1d" });
 if (!ihsg || ihsg.length === 0) {
-    console.log("ERROR: No IHSG data. Check network.");
+    console.log("ERROR: No IHSG candle data. Check network.");
     Deno.exit(1);
 }
 
 const closes = ihsg.map((c) => c.close);
 const n = closes.length;
-
-const ma5 = sma(closes, 5);
-const ma10 = sma(closes, 10);
+const close = ihsg[n - 1].close;
 const ma20 = sma(closes, 20);
 const ma10Slope = maSlope(closes, 10, 5);
-
-const latest = ihsg[n - 1];
-const prev = ihsg[n - 2];
-const close = latest.close;
-const dailyChg = pctChange(prev.close, close);
 const distMA20 = distPct(close, ma20);
 const close10dAgo = closes[n - 11] || closes[0];
 const chg10d = pctChange(close10dAgo, close);
+const date = new Date(ihsg[n - 1].date * 1000).toISOString().slice(0, 10);
 
-const deadCat = distMA20 < -3 && ma10Slope < 0;
-const exhaustion = chg10d > 7 && dailyChg < 0;
-
-let regime = "NORMAL";
-if (deadCat) regime = "SIT_OUT";
-else if (exhaustion) regime = "DEFENSIVE";
-else if (distMA20 < -3 || ma10Slope < -3) regime = "SIT_OUT";
-else if (distMA20 < -1 || ma10Slope < -1) regime = "DEFENSIVE";
-else if (distMA20 > 2 && ma10Slope > 1) regime = "AGGRESSIVE";
-
-const date = new Date(latest.date * 1000).toISOString().slice(0, 10);
-console.log(`Date: ${date}`);
 console.log(
-    `Close: ${close.toFixed(0)} | Daily: ${dailyChg >= 0 ? "+" : ""}${dailyChg.toFixed(2)}%`,
+    `\n  IHSG technicals (${date}): Dist MA20 ${distMA20 >= 0 ? "+" : ""}${distMA20.toFixed(2)}% | MA10 slope (5d) ${ma10Slope >= 0 ? "+" : ""}${ma10Slope.toFixed(2)}% | 10d change ${chg10d >= 0 ? "+" : ""}${chg10d.toFixed(2)}%`,
 );
-console.log(`MA5: ${ma5.toFixed(0)} | MA10: ${ma10.toFixed(0)} | MA20: ${ma20.toFixed(0)}`);
-console.log(
-    `Close vs MA5: ${close > ma5 ? "ABOVE" : "BELOW"} | vs MA10: ${close > ma10 ? "ABOVE" : "BELOW"} | vs MA20: ${close > ma20 ? "ABOVE" : "BELOW"}`,
-);
-console.log(`Dist from MA20: ${distMA20 >= 0 ? "+" : ""}${distMA20.toFixed(2)}%`);
-console.log(`MA10 slope (5d): ${ma10Slope >= 0 ? "+" : ""}${ma10Slope.toFixed(2)}%`);
-console.log(`10d change: ${chg10d >= 0 ? "+" : ""}${chg10d.toFixed(2)}%`);
-console.log(
-    `Traps: deadcat=${deadCat ? "TRIGGERED" : "ok"} | exhaustion=${exhaustion ? "TRIGGERED" : "ok"}`,
-);
-console.log(`\n>>> REGIME: ${regime} <<<\n`);
 
-// Last 10 IHSG candles
-console.log("Last 10 days:");
+console.log("\n  Last 10 days:");
 for (const c of ihsg.slice(-10)) {
     const d = new Date(c.date * 1000).toISOString().slice(0, 10);
     const chg = ((c.close - c.open) / c.open * 100).toFixed(2);
     console.log(
-        `  ${d} O:${c.open.toFixed(0)} H:${c.high.toFixed(0)} L:${c.low.toFixed(0)} C:${c.close.toFixed(0)} Chg:${chg}%`,
+        `    ${d} O:${c.open.toFixed(0)} H:${c.high.toFixed(0)} L:${c.low.toFixed(0)} C:${c.close.toFixed(0)} Chg:${chg}%`,
     );
 }
 
