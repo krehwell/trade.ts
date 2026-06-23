@@ -22,6 +22,8 @@ export interface RegimeResult {
         aboveMa10: boolean;
         aboveMa20: boolean;
         ma5Slope: number;  // % change in MA5 over 3 days
+        ma10Slope: number; // % change in MA10 over 3 days
+        distMa20: number;  // % distance of close from MA20
         vol1d: number;
         avgVol5: number;
         volRatio: number;
@@ -45,7 +47,7 @@ export const detectRegime = async (): Promise<RegimeResult> => {
         return {
             regime: "SIT_OUT",
             score: -10,
-            ihsg: { close: 0, chg1d: 0, chg3d: 0, chg5d: 0, ma5: 0, ma10: 0, ma20: 0, aboveMa5: false, aboveMa10: false, aboveMa20: false, ma5Slope: 0, vol1d: 0, avgVol5: 0, volRatio: 0 },
+            ihsg: { close: 0, chg1d: 0, chg3d: 0, chg5d: 0, ma5: 0, ma10: 0, ma20: 0, aboveMa5: false, aboveMa10: false, aboveMa20: false, ma5Slope: 0, ma10Slope: 0, distMa20: 0, vol1d: 0, avgVol5: 0, volRatio: 0 },
             breadth: { bandarBuying: 0, bandarSelling: 0, ratio: 0, totalLiquid: 0 },
             signals: ["NO_DATA"],
         };
@@ -171,7 +173,7 @@ export const detectRegime = async (): Promise<RegimeResult> => {
             close: t.close, chg1d, chg3d, chg5d,
             ma5, ma10, ma20,
             aboveMa5, aboveMa10, aboveMa20,
-            ma5Slope,
+            ma5Slope, ma10Slope, distMa20,
             vol1d: t.volume, avgVol5, volRatio,
         },
         breadth: { bandarBuying, bandarSelling, ratio: breadthRatio, totalLiquid },
