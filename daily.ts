@@ -5,7 +5,7 @@
  * Usage: deno task daily
  */
 
-import { fetchCandles } from "./utils/yahooFetch.ts";
+import { fetchCandles } from "./utils/stockbitCandles.ts";
 import { fetchScreener } from "./fetchScreener.ts";
 import { ITEMS } from "./utils/screenerItems.ts";
 

@@ -1,4 +1,4 @@
-import { fetchCandles } from "./utils/yahooFetch.ts";
+import { fetchCandles } from "./utils/stockbitCandles.ts";
 
 const tickers = [""];
 

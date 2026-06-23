@@ -4,7 +4,7 @@
  * Uses intraday 5m candles to get today's live open/price.
  * Verdict: ENTER / SKIP / SELL_INTO_GAP
  */
-import { fetchCandles } from "./utils/yahooFetch.ts";
+import { fetchCandles } from "./utils/stockbitCandles.ts";
 
 const STOCK = "BRIS";
 const YESTERDAY_CLOSE = 1790;
