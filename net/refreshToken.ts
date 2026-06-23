@@ -42,7 +42,7 @@ export const refreshAccessToken = async (
     };
 };
 
-// Rewrite src/net/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
+// Rewrite net/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
 // Both args are full "Bearer ..." strings and are written verbatim.
 export const persistTokens = async (
     { token, refreshToken }: { token: string; refreshToken: string },
