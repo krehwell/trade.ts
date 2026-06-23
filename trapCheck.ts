@@ -1,23 +1,36 @@
 /**
  * Premarket Trap Detector.
- * Run before the open to check whether today's setup is a bandar distribution trap.
+ *
+ * Estimates the chance that today's setup is a bandar distribution trap: smart
+ * money flow that looks like accumulation but is really an exit, so a bounce
+ * fades and traps anyone who chased it.
+ *
+ * It leans on shared code for everything market wide.  `detectRegime()` (the same
+ * detector daily and picker use) supplies the regime, breadth, and IHSG structure;
+ * the only trap specific step is checking whether the top inflow names are already
+ * stretched above their MA5 on fading volume, a classic "pump into strength to
+ * distribute" tell.
+ *
+ * Each signal adds weighted points into a 0..100 probability, mapped to a verdict:
+ *   < 55    ENTER  normal rules per the regime table apply
+ *   55..79  WAIT   trade small and late, hard +2% cap
+ *   >= 80   SKIP   stand aside, the move is a trap
  *
  * Usage: deno task trap
- *
- * Output: TRAP PROBABILITY % + ENTER / WAIT / SKIP recommendation.
  *
  * TEMPORARY: remove if unused.  Kel, just say "hapus trap check" and it's gone.
  */
 
+import { detectRegime } from "./market/marketRegime.ts";
 import { fetchCandles } from "./data/stockbitCandles.ts";
 import { fetchScreener } from "./data/fetchScreener.ts";
 import { ITEMS } from "./data/screenerItems.ts";
-import { distPct, maSlope, pctChange, sma } from "./market/indicators.ts";
+import { distPct, sma } from "./market/indicators.ts";
 
-// ─── Scoring weights ────────────────────────────────────────
+// Points each signal contributes to the trap probability when it fires.
 const WEIGHTS = {
     SIT_OUT: 30,
-    AGGRESSIVE: -20,       // negative weight lowers trap probability
+    AGGRESSIVE: -20,       // a healthy tape lowers trap probability
     DEAD_CAT: 25,
     BREADTH_UNDER_22: 25,
     BREADTH_UNDER_30: 15,
@@ -28,53 +41,20 @@ const WEIGHTS = {
     IHSG_OVERSHOT: 10,     // 3d bounce over 7%
 };
 
-// ─── Main ────────────────────────────────────────────────────
-
 console.log("═".repeat(55));
 console.log("  PREMARKET TRAP DETECTOR");
 console.log("═".repeat(55));
 
-// 1. IHSG structure.
-console.log("\n[1/3] Checking IHSG structure...");
-const ihsg = await fetchCandles({ symbol: "^JKSE", range: "60d", interval: "1d" });
-if (!ihsg || ihsg.length < 20) {
-    console.log("ERROR: No IHSG data");
-    Deno.exit(1);
-}
+// Regime, breadth, and IHSG structure all come from the shared detector,
+// the single source of truth that daily and picker also use.
+console.log("\n[1/2] Reading market regime...");
+const r = await detectRegime();
+const regime = r.regime;
+const breadth = r.breadth.ratio * 100;
+const { close, chg1d, chg3d, ma5, ma10, ma20, ma10Slope, distMa20 } = r.ihsg;
 
-const closes = ihsg.map(c => c.close);
-const n = closes.length;
-const today = ihsg[n - 1];
-const yesterday = ihsg[n - 2];
-
-const ma5 = sma(closes, 5);
-const ma10 = sma(closes, 10);
-const ma20 = sma(closes, 20);
-const ma10Slope = maSlope(closes, 10, 3);
-const distMA20 = distPct(today.close, ma20);
-
-const chg1d = pctChange(yesterday.close, today.close);
-const chg3d = n >= 4 ? pctChange(ihsg[n - 4].close, today.close) : 0;
-
-// Simplified IHSG only regime.  Breadth is scored separately below, so keep it out here
-// to avoid double counting.
-let regime = "NORMAL";
-if (distMA20 < -3 && ma10Slope < 0) regime = "SIT_OUT";
-else if (distMA20 < -3 || ma10Slope < -3) regime = "SIT_OUT";
-else if (distMA20 < -1 || ma10Slope < -1) regime = "DEFENSIVE";
-
-// 2. Breadth.
-console.log("[2/3] Checking market breadth...");
-const [buying, selling] = await Promise.all([
-    fetchScreener({ filters: [{ id: ITEMS.BANDAR_VALUE, operator: ">", value: 0 }], page: 1, perPage: 1 }),
-    fetchScreener({ filters: [{ id: ITEMS.BANDAR_VALUE, operator: "<", value: 0 }], page: 1, perPage: 1 }),
-]);
-const breadth = (buying.totalRows + selling.totalRows) > 0
-    ? (buying.totalRows / (buying.totalRows + selling.totalRows)) * 100
-    : 50;
-
-// 3. Are the top flow stocks already overextended above their MA5?
-console.log("[3/3] Checking top flow stocks for overextension...");
+// Trap specific check: are today's top inflow names already overextended?
+console.log("[2/2] Checking top flow stocks for overextension...");
 const topFlow = await fetchScreener({
     filters: [
         { id: ITEMS.BANDAR_VALUE, operator: ">", value: 0 },
@@ -86,20 +66,20 @@ const topFlow = await fetchScreener({
     perPage: 10,
 });
 
-// Rank by today's bandar delta (cumulative minus previous).
-const enriched = topFlow.stocks.map(s => ({
-    symbol: s.symbol,
-    bandar: s.results[ITEMS.BANDAR_VALUE] || 0,
-    bandarPrev: s.results[ITEMS.BANDAR_PREV_VALUE] || 0,
-}));
-enriched.sort((a, b) => (b.bandar - b.bandarPrev) - (a.bandar - a.bandarPrev));
+// Top net buyers today, ranked by bandar delta (cumulative minus previous).
+const topBuyers = topFlow.stocks
+    .map(s => ({
+        symbol: s.symbol,
+        delta: (s.results[ITEMS.BANDAR_VALUE] || 0) - (s.results[ITEMS.BANDAR_PREV_VALUE] || 0),
+    }))
+    .filter(s => s.delta > 0)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, 5);
 
 let totalExtension = 0;
 let extCount = 0;
 let decliningVol = 0;
-let volCount = 0;
-
-for (const stock of enriched.filter(s => s.bandar > s.bandarPrev).slice(0, 5)) {
+for (const stock of topBuyers) {
     const candles = await fetchCandles({ symbol: stock.symbol, range: "15d", interval: "1d" });
     if (!candles || candles.length < 5) continue;
 
@@ -110,10 +90,9 @@ for (const stock of enriched.filter(s => s.bandar > s.bandarPrev).slice(0, 5)) {
     // A bounce on fading volume is a distribution tell.
     const vols = candles.slice(-5).map(c => c.volume);
     if ((vols[vols.length - 1] - vols[0]) / (vols[0] || 1) < 0) decliningVol++;
-    volCount++;
 }
-
 const avgExtension = extCount > 0 ? totalExtension / extCount : 0;
+const volFading = extCount > 0 && decliningVol / extCount > 0.5;
 
 // ─── SCORING ─────────────────────────────────────────────────
 
@@ -129,7 +108,7 @@ if (regime === "SIT_OUT") {
 }
 
 // Dead cat: deep below MA20 while MA10 is still falling.
-if (distMA20 < -3 && ma10Slope < 0) {
+if (distMa20 < -3 && ma10Slope < 0) {
     probability += WEIGHTS.DEAD_CAT;
     signals.push(`Dead cat bounce (+${WEIGHTS.DEAD_CAT}%)`);
 }
@@ -147,9 +126,9 @@ if (ma10Slope < -1) {
     signals.push(`MA10 falling ${ma10Slope.toFixed(1)}% (+${WEIGHTS.MA10_FALLING}%)`);
 }
 
-if (distMA20 < -3) {
+if (distMa20 < -3) {
     probability += WEIGHTS.DIST_MA20_DEEP;
-    signals.push(`IHSG ${distMA20.toFixed(1)}% below MA20 (+${WEIGHTS.DIST_MA20_DEEP}%)`);
+    signals.push(`IHSG ${distMa20.toFixed(1)}% below MA20 (+${WEIGHTS.DIST_MA20_DEEP}%)`);
 }
 
 if (avgExtension > 5) {
@@ -157,7 +136,7 @@ if (avgExtension > 5) {
     signals.push(`Top flow avg +${avgExtension.toFixed(1)}% above MA5 (+${WEIGHTS.FLOW_EXTENDED}%)`);
 }
 
-if (volCount > 0 && decliningVol / volCount > 0.5 && chg3d > 3) {
+if (volFading && chg3d > 3) {
     probability += WEIGHTS.VOLUME_DECLINING;
     signals.push(`Vol declining on +${chg3d.toFixed(1)}% bounce (+${WEIGHTS.VOLUME_DECLINING}%)`);
 }
@@ -188,9 +167,9 @@ console.log("\n" + "═".repeat(55));
 console.log("  TRAP DETECTION RESULT");
 console.log("═".repeat(55));
 
-console.log(`\n  IHSG: ${today.close.toFixed(0)} | 1d: ${chg1d >= 0 ? "+" : ""}${chg1d.toFixed(1)}% | 3d: ${chg3d >= 0 ? "+" : ""}${chg3d.toFixed(1)}%`);
+console.log(`\n  IHSG: ${close.toFixed(0)} | 1d: ${chg1d >= 0 ? "+" : ""}${chg1d.toFixed(1)}% | 3d: ${chg3d >= 0 ? "+" : ""}${chg3d.toFixed(1)}%`);
 console.log(`  MA5: ${ma5.toFixed(0)} | MA10: ${ma10.toFixed(0)} | MA20: ${ma20.toFixed(0)}`);
-console.log(`  MA10 slope: ${ma10Slope >= 0 ? "+" : ""}${ma10Slope.toFixed(1)}% | Dist MA20: ${distMA20 >= 0 ? "+" : ""}${distMA20.toFixed(1)}%`);
+console.log(`  MA10 slope: ${ma10Slope >= 0 ? "+" : ""}${ma10Slope.toFixed(1)}% | Dist MA20: ${distMa20 >= 0 ? "+" : ""}${distMa20.toFixed(1)}%`);
 console.log(`  Regime: ${regime} | Breadth: ${breadth.toFixed(0)}%`);
 console.log(`  Top flow avg extension: ${extCount > 0 ? (avgExtension >= 0 ? "+" : "") + avgExtension.toFixed(1) + "%" : "N/A"}`);
 
