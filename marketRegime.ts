@@ -1,4 +1,5 @@
-import { fetchYahooDaily, type YahooCandle } from "./utils/yahooFetch.ts";
+import { fetchDaily as fetchYahooDaily } from "./utils/stockbitCandles.ts";
+import { type YahooCandle } from "./utils/yahooFetch.ts";
 import { fetchScreener } from "./fetchScreener.ts";
 import { ITEMS } from "./utils/screenerItems.ts";
 import { printSubHeader } from "./utils/print.ts";

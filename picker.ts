@@ -11,7 +11,8 @@
 
 import { fetchScreener, type ScreenerStock } from "./fetchScreener.ts";
 import { fetchBrokerActivity, fetchBrokerActivityMultiTF, fetchTopBrokers } from "./fetchBrokerActivity.ts";
-import { fetchYahooDailyMulti, type YahooCandle } from "./utils/yahooFetch.ts";
+import { fetchDailyMulti as fetchYahooDailyMulti } from "./utils/stockbitCandles.ts";
+import { type YahooCandle } from "./utils/yahooFetch.ts";
 import { fetchPOST } from "./utils/stockbitFetch.ts";
 import { ITEMS } from "./utils/screenerItems.ts";
 import { daysAgo, today } from "./utils/date.ts";

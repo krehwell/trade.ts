@@ -5,7 +5,7 @@
  *
  * Usage: deno run --allow-net utils/analyzeStock.ts SYMBOL
  */
-import { fetchCandles } from "./yahooFetch.ts";
+import { fetchCandles } from "./stockbitCandles.ts";
 
 const sym = Deno.args[0];
 if (!sym) { console.log("Usage: deno run --allow-net utils/analyzeStock.ts SYMBOL"); Deno.exit(1); }

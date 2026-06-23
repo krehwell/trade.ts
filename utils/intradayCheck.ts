@@ -6,7 +6,7 @@
  * Usage: deno run --allow-net utils/intradayCheck.ts SYM1 SYM2 SYM3 ...
  * Outputs JSON with intraday data + computed metrics.
  */
-import { fetchCandles } from "./yahooFetch.ts";
+import { fetchCandles } from "./stockbitCandles.ts";
 
 interface IntradayMetrics {
     open: number;
