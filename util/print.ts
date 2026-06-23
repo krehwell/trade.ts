@@ -1,4 +1,4 @@
-// --- Number formatting ---
+// Number formatting
 
 export const fmtNum = (n: number): string => {
     const abs = Math.abs(n);
@@ -16,7 +16,7 @@ export const fmtPct = (n: number): string =>
 export const fmtPrice = (n: number): string =>
     n.toLocaleString("id-ID");
 
-// --- Section headers ---
+// Section headers
 
 export const printHeader = (title: string) => {
     const line = "═".repeat(60);
@@ -29,7 +29,7 @@ export const printSubHeader = (title: string) => {
     console.log(`\n── ${title} ${"─".repeat(Math.max(0, 55 - title.length))}`);
 };
 
-// --- Generic table ---
+// Generic table
 
 export interface Column {
     label: string;
@@ -67,7 +67,7 @@ export const printTable = ({
     }
 };
 
-// --- Stock list (compact columns) ---
+// Stock list (compact columns)
 
 export const printStockList = ({
     stocks,
@@ -84,7 +84,7 @@ export const printStockList = ({
     }
 };
 
-// --- Flow summary ---
+// Flow summary
 
 export const printFlowSummary = ({
     a,
@@ -121,9 +121,9 @@ export const printFlowSummary = ({
     }
 };
 
-// --- Broker flow table ---
+// Broker flow table
 
-import type { StockFlow } from "../fetchBrokerActivity.ts";
+import type { StockFlow } from "../data/fetchBrokerActivity.ts";
 
 export const printFlowTable = ({
     title,
@@ -156,7 +156,7 @@ export const printFlowTable = ({
     });
 };
 
-// --- Multi-timeframe flow comparison ---
+// Multi timeframe flow comparison
 
 export const printMultiTFFlow = ({
     title,

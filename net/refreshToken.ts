@@ -1,23 +1,23 @@
-import { warpClient } from "../lib/warpClient.ts";
+import { warpClient } from "./warpClient.ts";
 import { REFRESH_TOKEN } from "./constants.ts";
 
 const BASE = "https://exodus.stockbit.com";
 
 // All token fields are COMPLETE Authorization header strings ("Bearer <jwt>"), matching
-// the form stored in constants.ts. The only place a raw JWT becomes a "Bearer ..." string
-// is below, where the API response is read — nowhere else should prepend "Bearer ".
+// the form stored in constants.ts.  A raw JWT only becomes a "Bearer ..." string below,
+// where the API response is read; nowhere else should prepend "Bearer ".
 export interface RefreshedTokens {
-    token: string; // "Bearer <jwt>" — new access, ready for Authorization header
-    refreshToken: string; // "Bearer <jwt>" — new refresh (rotated)
+    token: string; // "Bearer <jwt>", new access, ready for the Authorization header
+    refreshToken: string; // "Bearer <jwt>", new refresh (rotated)
     accessExpiredAt: string;
     refreshExpiredAt: string;
 }
 
-// POST /login/refresh — exchange the refresh token for a fresh access + refresh pair.
+// POST /login/refresh: exchange the refresh token for a fresh access + refresh pair.
 // Send the REFRESH token in the Authorization header (already "Bearer ..."), empty body.
-// IMPORTANT: refresh is SINGLE-USE and rotates the whole session — the old access AND
-// refresh tokens are invalidated server-side on each call. The new refresh token in the
-// response MUST be persisted, or the next refresh fails with UNAUTHORIZED.
+// IMPORTANT: refresh is SINGLE USE and rotates the whole session.  The old access AND
+// refresh tokens are invalidated server side on each call, so the new refresh token in
+// the response MUST be persisted, or the next refresh fails with UNAUTHORIZED.
 // Response shape: { message, data: { access: {token, expired_at}, refresh: {token, expired_at} } }
 export const refreshAccessToken = async (
     { refreshToken = REFRESH_TOKEN }: { refreshToken?: string } = {},
@@ -42,7 +42,7 @@ export const refreshAccessToken = async (
     };
 };
 
-// Rewrite utils/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
+// Rewrite net/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
 // Both args are full "Bearer ..." strings and are written verbatim.
 export const persistTokens = async (
     { token, refreshToken }: { token: string; refreshToken: string },

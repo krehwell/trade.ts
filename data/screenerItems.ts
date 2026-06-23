@@ -1,3 +1,5 @@
+// Stockbit screener column IDs.  These magic numbers are the API's item identifiers;
+// the inline label on each says what that column returns.
 export enum ITEMS {
     // === PRICE & MARKET ===
     PRICE = 2661,
