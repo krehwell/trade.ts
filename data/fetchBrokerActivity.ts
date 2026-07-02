@@ -15,6 +15,13 @@ export interface Broker {
 }
 export type StockFlow = Record<string, number>;
 
+// Smart money broker set (foreign/institutional desks). Validate against
+// /order-trade/broker/top before adding codes — invalid codes fail silently as {}.
+// MS (Morgan Stanley) + CG (Citigroup) removed Jul 2026: deregistered from IDX.
+export const SM_BROKERS = ["BK", "CS", "GW", "KZ", "RX", "DP", "AK", "ZP", "LG", "TP", "KI", "HP"];
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 const fetchBrokerActivitySingle = async ({
     broker,
     from,
@@ -35,7 +42,11 @@ const fetchBrokerActivitySingle = async ({
     });
 
     const bat = res.data?.broker_activity_transaction;
-    if (!bat) return {};
+    if (!bat) {
+        // Invalid broker code or rate-limited response — surface it, silent {} undercounts flow
+        console.error(`  warn broker ${broker} ${from}..${to}: ${res.message ?? "empty response"}`);
+        return {};
+    }
 
     const result: StockFlow = {};
     for (const item of bat.brokers_buy ?? []) {
@@ -54,13 +65,14 @@ export const fetchBrokerActivity = async ({
 }: { brokers: string[]; from: string; to: string }): Promise<StockFlow> => {
     const result: StockFlow = {};
 
-    const singles = await Promise.all(
-        brokers.map((broker) => fetchBrokerActivitySingle({ broker, from, to }))
-    );
-    for (const single of singles) {
+    // Sequential + delay: >~40 parallel requests trips the rate limiter, which
+    // returns empty payloads that silently sum as zero flow.
+    for (const broker of brokers) {
+        const single = await fetchBrokerActivitySingle({ broker, from, to });
         for (const [sym, val] of Object.entries(single)) {
             result[sym] = (result[sym] ?? 0) + val;
         }
+        await delay(150);
     }
 
     return result;

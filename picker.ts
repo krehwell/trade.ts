@@ -10,7 +10,7 @@
  */
 
 import { fetchScreener, type ScreenerStock } from "./data/fetchScreener.ts";
-import { fetchBrokerActivity, fetchBrokerActivityMultiTF, fetchTopBrokers } from "./data/fetchBrokerActivity.ts";
+import { fetchBrokerActivity, fetchBrokerActivityMultiTF, fetchTopBrokers, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDailyMulti as fetchYahooDailyMulti } from "./data/stockbitCandles.ts";
 import { type YahooCandle } from "./data/yahooCandles.ts";
 import { fetchPOST } from "./net/stockbitFetch.ts";
@@ -58,8 +58,6 @@ const fetchScreenerWithColumns = async ({ filters, columns, orderCol, orderType 
     return all;
 };
 
-// Smart money brokers
-const SM_BROKERS = ["MS", "BK", "CS", "CG", "GW", "KZ", "RX", "DP", "AK", "ZP", "LG", "TP", "KI", "HP"];
 
 interface Candidate {
     symbol: string;
