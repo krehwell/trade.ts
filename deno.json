@@ -5,6 +5,7 @@
     "pick": "deno run --unstable-http --allow-net picker.ts",
     "analyze": "deno run --unstable-http --allow-net analyzeStock.ts",
     "bandar": "deno run --unstable-http --allow-net bandarHistory.ts",
+    "bandar-top": "deno run --unstable-http --allow-net bandarToday.ts",
     "trap": "deno run --unstable-http --allow-net trapCheck.ts"
   },
   "compilerOptions": {

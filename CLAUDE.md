@@ -195,6 +195,7 @@ Layout: **entry points at root**, everything else grouped by role into `market/`
 - `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
 - `analyzeStock.ts` (`deno task analyze SYM`) — Per-stock technical analysis CLI: MA distances, vol ratios, structure, red flags
 - `bandarHistory.ts` (`deno task bandar SYM [days=20]`) — Day-by-day SM/bandar net flow vs price for one stock. Reconstructs the accumulation/distribution timeline the screener can't show. ~13 requests per day of history (sequential, rate-limit safe) → 20d ≈ 1 min. Use to answer "when did bandar load/unload, and did price follow?"
+- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`) — Cross-section counterpart of `bandar`: ONE date, ALL stocks — SM net flow ranked (top inflow + outflow) with close/chg% context. Use to answer "what is bandar buying today/on date X?" Today is empty until ~6PM WIB finalization — the tool says so and suggests yesterday.
 - `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `net/constants.ts`. See Token Refresh.
 
 ## market — domain logic
