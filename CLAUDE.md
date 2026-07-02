@@ -164,7 +164,11 @@ From actual SIT_OUT price action (breadth ~20%):
 - Stocks can show large positive cumulative but be NET SELLING today — always compute delta
 - Screener `name` field must be non-empty (use `"screen"`)
 - Screener has NO date parameter — always returns current data
-- Broker activity returns max 200 buy + 200 sell per request
+- **Bandar/SM history IS available** — not via screener (BANDAR_VALUE = snapshot-only, and all per-stock bandar-detector/broker-summary endpoint guesses 404), but `/order-trade/broker/activity` accepts arbitrary `from`/`to`. Loop per trading day + sum SM broker set = day-by-day accumulation timeline. That's `bandarHistory.ts` (`deno task bandar SYM [days]`).
+- Broker activity returns max 200 buy + 200 sell per request — thin stocks can silently drop out of a broker's top-200 on quiet days
+- **Broker activity rate limit**: >~40 near-parallel requests → empty payloads that sum as silent zeros (looks like "no flow", actually dropped data). `fetchBrokerActivity` fetches sequentially with 150ms delay for this reason — don't parallelize it again.
+- **Broker codes go stale**: MS (Morgan Stanley) + CG (Citigroup) deregistered from IDX (removed Jul 2026). Invalid codes return `"Kode broker salah"` and used to fail silently as {}. Validate new codes against `/order-trade/broker/top` (`fetchTopBrokers`). Canonical SM set lives in `data/fetchBrokerActivity.ts` (`SM_BROKERS`), imported by picker.
+- Broker activity for TODAY returns 0 until EOD finalization (~6PM WIB) — a zero last row in `bandar` output during market hours means "not final yet", not "no flow"
 - Chartbit serves per-stock candles again (no longer paywalled): `GET /chartbit/{TICKER}/price/daily` and `/intraday`
 - Chartbit daily `from`/`to` are `YYYY-MM-DD` with **from=newer, to=older** (counterintuitive); intraday `from`/`to` are unix seconds + `minutes_multiplier`
 - Chartbit ticker is the **bare** symbol (`BBCA`); Yahoo wants `.JK` (`BBCA.JK`) — `stockbitCandles.ts` normalizes both, and routes index symbols (`^JKSE`) straight to Yahoo
@@ -190,6 +194,7 @@ Layout: **entry points at root**, everything else grouped by role into `market/`
 - `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime via the shared `detectRegime` (**same verdict as the picker** — one source of truth, no divergent daily heuristic) → IHSG technicals + last-10 candle table → full screener scan → candles for top flow stocks.
 - `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
 - `analyzeStock.ts` (`deno task analyze SYM`) — Per-stock technical analysis CLI: MA distances, vol ratios, structure, red flags
+- `bandarHistory.ts` (`deno task bandar SYM [days=20]`) — Day-by-day SM/bandar net flow vs price for one stock. Reconstructs the accumulation/distribution timeline the screener can't show. ~13 requests per day of history (sequential, rate-limit safe) → 20d ≈ 1 min. Use to answer "when did bandar load/unload, and did price follow?"
 - `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `net/constants.ts`. See Token Refresh.
 
 ## market — domain logic
@@ -200,7 +205,7 @@ Layout: **entry points at root**, everything else grouped by role into `market/`
 - `data/stockbitCandles.ts` — **candle source of record.** Stockbit-first with Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes are drop-in for `yahooCandles`.
 - `data/yahooCandles.ts` — Yahoo Finance candles (fallback only): `fetchCandles` + `fetchYahooDaily` + `fetchYahooDailyMulti`. (Named for its role — a candle source, peer of `stockbitCandles`, not a transport wrapper.)
 - `data/fetchScreener.ts` — Stockbit screener API
-- `data/fetchBrokerActivity.ts` — SM/retail broker flow across timeframes
+- `data/fetchBrokerActivity.ts` — SM/retail broker flow across timeframes; exports canonical `SM_BROKERS` set; sequential fetching (rate-limit safe, warns on invalid broker/empty payload)
 - `data/screenerItems.ts` — Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
 
 ## net — transport, auth, config
