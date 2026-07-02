@@ -26,7 +26,7 @@ When asked to analyze or build:
 
 | Regime | Max Picks | TP | Stop | Max Gap Entry | Hold Period | Entry Timing |
 |--------|-----------|-----|------|---------------|-------------|--------------|
-| SIT_OUT | 0-2, half size | **+2%** | **-2%** | <1% (skip >1%) | Intraday-1d | Wait 60min after open |
+| SIT_OUT | 0-2, half size | **+1.7%** | **-2%** | <1% (skip >1%) | Intraday-1d | Wait 60min after open |
 | DEFENSIVE | 3 max, half size | +3-5% | -3% | <2% | 1-2 days | Wait 15min |
 | NORMAL | 5-7 picks | +5-8% | -4-5% | <3% | 1-3 days | Open or dip |
 | AGGRESSIVE | Full 7, momentum | +8-15% | -6-8% | <5% | 2-5 days | Open, chase ok |
@@ -35,13 +35,13 @@ When asked to analyze or build:
 
 ### SIT_OUT Rules (override any stock-level analysis)
 
-- TP = entry + 2%. NOT "resistance". NOT "+5%". TWO PERCENT. Empirically proven ceiling.
+- TP = entry + 1.7% (empirically adjusted from 2.0% — AADI Jun 26: peaked +1.9% then faded, missed +2% by 12 pts). NOT "resistance". NOT "+5%". 1.7 PERCENT.
 - Stop = entry - 2%. Cut fast.
 - Gap > 1% at open = DO NOT ENTER.
 - Gap > 2% at open = SELL into the gap. The gap IS the move.
 - Wait 60min after open. First-hour noise is maximum. IHSG red >1% at 9:30 = NO ENTRIES.
 - Position size = 50% of normal.
-- Example: stock at 272 → TP = 277 (+2%). Stop = 266 (-2%). NOT "TP at resistance 290".
+- Example: stock at 272 → TP = 277 (+1.7%). Stop = 266 (-2%). NOT "TP at resistance 290".
 
 ### DEFENSIVE Rules
 
@@ -98,8 +98,9 @@ From actual SIT_OUT price action (breadth ~20%):
 - CDIA: peaked +2.4% then faded
 - ARCI: peaked +2.5% then faded
 - BRMS: peaked +3% then faded
+- **AADI (Jun 26): peaked +1.9% then faded — missed +2% by 12 pts**
 
-**+2% is the empirical ceiling in SIT_OUT.** Upgrade conditions:
+**+1.7% is the TP target in SIT_OUT** (empirical ceiling is +2%, target below it to capture before fade). Upgrade conditions:
 - Breadth > 30% → DEFENSIVE TPs (+3-5%)
 - IHSG reclaims MA20 + MA10 flattening → NORMAL TPs (+5-8%)
 
@@ -107,7 +108,7 @@ From actual SIT_OUT price action (breadth ~20%):
 
 1. **Regime is #1** — beats all stock-level signals. Apr 24: score -10, ALL 7 picks lost avg -5.78%
 2. **Scan ALL stocks** — don't just check previous watchlist
-3. **+2% TP in SIT_OUT** — empirically validated ceiling
+3. **+1.7% TP in SIT_OUT** — empirically adjusted from 2.0%. AADI Jun 26: peaked +1.9%, missed TP by 12 pts, faded entirely. +2% is the hard ceiling; target +1.7% to capture the move before the fade.
 4. **Gap up in SIT_OUT = exit signal** — the gap IS the TP
 5. **Big bandar flow ≠ price action** — CDIA May 7: +22B flow, -9.3% price. Flow can be exit liquidity.
 6. **Price structure > flow** — clean structure + flow beats flow alone
