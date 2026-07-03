@@ -16,7 +16,7 @@ export interface Broker {
 export type StockFlow = Record<string, number>;
 
 // Smart money broker set (foreign/institutional desks). Validate against
-// /order-trade/broker/top before adding codes — invalid codes fail silently as {}.
+// /order-trade/broker/top before adding codes, invalid codes fail silently as {}.
 // MS (Morgan Stanley) + CG (Citigroup) removed Jul 2026: deregistered from IDX.
 export const SM_BROKERS = ["BK", "CS", "GW", "KZ", "RX", "DP", "AK", "ZP", "LG", "TP", "KI", "HP"];
 
@@ -43,7 +43,7 @@ const fetchBrokerActivitySingle = async ({
 
     const bat = res.data?.broker_activity_transaction;
     if (!bat) {
-        // Invalid broker code or rate-limited response — surface it, silent {} undercounts flow
+        // Invalid broker code or rate-limited response. Surface it, a silent {} undercounts flow.
         console.error(`  warn broker ${broker} ${from}..${to}: ${res.message ?? "empty response"}`);
         return {};
     }

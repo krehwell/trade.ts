@@ -25,7 +25,7 @@ const candles = await fetchDailyMulti({ symbols: syms, days: 10 });
 const chgOn = (sym: string): string => {
     const cs = candles[sym] ?? [];
     const i = cs.findIndex((c) => c.date === date);
-    const cur = i >= 0 ? cs[i] : cs[cs.length - 1]; // fall back to latest candle
+    const cur = i >= 0 ? cs[i] : cs[cs.length - 1];
     const prev = i > 0 ? cs[i - 1] : cs[cs.length - 2];
     if (!cur || !prev) return "     ?";
     const chg = ((cur.close - prev.close) / prev.close) * 100;

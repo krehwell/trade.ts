@@ -55,7 +55,6 @@ export const getGrowinCookie = async (): Promise<string> => {
   try {
     j = JSON.parse(body);
   } catch {
-    // Not JSON = blocked before the API (Akamai 403 HTML, etc)
     throw new Error(
       `Growin login blocked (HTTP ${res.status}, non-JSON response). Akamai edge likely rejected it. ` +
         `Re-grab a working request from the browser (DevTools > Network > /auth/api/v1/login > Copy as cURL) ` +
@@ -64,7 +63,6 @@ export const getGrowinCookie = async (): Promise<string> => {
   }
   const d = j.data;
   if (!d?.token) {
-    // Login reached the API but was rejected. Say why and what to do.
     const hint = d?.is_password_expired
       ? "password expired, reset it in the Growin app"
       : d?.is_otp_verified === false

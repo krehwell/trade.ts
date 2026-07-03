@@ -14,7 +14,7 @@ export interface Depth {
     bestAskPrice: number; bestAskVol: number;
 }
 
-// ---------- protobuf writer (minimal) ----------
+// minimal protobuf writer
 const vw = (n: number, o: number[]) => { while (n > 0x7f) { o.push((n & 0x7f) | 0x80); n = Math.floor(n / 128); } o.push(n); };
 const tag = (f: number, w: number, o: number[]) => vw((f << 3) | w, o);
 const len = (f: number, b: number[], o: number[]) => { tag(f, 2, o); vw(b.length, o); o.push(...b); };
@@ -34,7 +34,7 @@ const buildSubscribe = (sym: string, limit: number): Uint8Array => {
     return new Uint8Array(env);
 };
 
-// ---------- protobuf reader (minimal) ----------
+// minimal protobuf reader
 interface Field { f: number; w: number; v: number; s?: Uint8Array; }
 const parse = (u8: Uint8Array): Field[] => {
     const out: Field[] = []; let i = 0;
@@ -52,7 +52,6 @@ const parse = (u8: Uint8Array): Field[] => {
 const get = (fs: Field[], f: number) => fs.find((x) => x.f === f);
 const getAll = (fs: Field[], f: number) => fs.filter((x) => x.f === f);
 
-// envelope → (field 2) MarketDepthResponse → (field 2) BookData
 const decodeDepth = (frame: Uint8Array, symbol: string): Depth | null => {
     const env = parse(frame);
     const mdr = get(env, 2)?.s; if (!mdr) return null;         // Response.marketDepthResponse
@@ -77,8 +76,8 @@ const decodeDepth = (frame: Uint8Array, symbol: string): Depth | null => {
     };
 };
 
-// ---------- manual WS over TLS (HTTP/1.1) ----------
-const wsKey = "dGhlIHNhbXBsZSBub25jZQ=="; // static client nonce is fine for a client
+// manual WS over TLS (HTTP/1.1)
+const wsKey = "dGhlIHNhbXBsZSBub25jZQ==";
 const readFrame = async (conn: Deno.Conn, carry: { buf: Uint8Array }): Promise<{ op: number; payload: Uint8Array } | null> => {
     const need = async (n: number) => {
         while (carry.buf.length < n) {
@@ -130,7 +129,7 @@ export const fetchDepthSnapshot = async ({ symbol, limit = 10, timeoutMs = 7000 
     ].join("\r\n");
     await conn.write(new TextEncoder().encode(req));
 
-    // read handshake response headers (until \r\n\r\n)
+    // read until the end of the handshake headers, keep any leftover bytes as the first WS frame
     const carry = { buf: new Uint8Array(0) };
     while (true) {
         const chunk = new Uint8Array(4096); const r = await conn.read(chunk);
@@ -142,8 +141,6 @@ export const fetchDepthSnapshot = async ({ symbol, limit = 10, timeoutMs = 7000 
         if (idx >= 0) {
             if (!s.startsWith("HTTP/1.1 101")) {
                 const status = s.slice(0, s.indexOf("\r\n"));
-                // Login just succeeded, so a rejected upgrade means the session was killed
-                // (another device logged in) or the header set no longer satisfies Akamai.
                 throw new Error(
                     `Growin WS handshake failed: ${status}. The login cookie was rejected. ` +
                         `Usually means the account logged in elsewhere (Growin is single-session per device), ` +
@@ -151,20 +148,22 @@ export const fetchDepthSnapshot = async ({ symbol, limit = 10, timeoutMs = 7000 
                         `re-grab wss://api.growin.id/marketws/ws from the browser and reconcile data/growinDepth.ts.`,
                 );
             }
-            carry.buf = carry.buf.subarray(idx + 4); // leftover = start of first WS frame
+            carry.buf = carry.buf.subarray(idx + 4);
             break;
         }
     }
 
-    await writeFrame(conn, 0x2, buildSubscribe(sym, limit)); // binary subscribe
+    await writeFrame(conn, 0x2, buildSubscribe(sym, limit));
 
     const deadline = Date.now() + timeoutMs;
     try {
         while (Date.now() < deadline) {
-            const fr = await Promise.race([
-                readFrame(conn, carry),
-                new Promise<null>((res) => setTimeout(() => res(null), deadline - Date.now())),
-            ]);
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const timeout = new Promise<null>((res) => {
+                timer = setTimeout(() => res(null), deadline - Date.now());
+            });
+            const fr = await Promise.race([readFrame(conn, carry), timeout]);
+            clearTimeout(timer); // else the pending timer keeps the process alive after we return
             if (!fr) break;
             if (fr.op === 0x9) { await writeFrame(conn, 0xA, fr.payload); continue; } // ping→pong
             if (fr.op === 0x8) break;                                                 // close
