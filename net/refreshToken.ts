@@ -1,10 +1,10 @@
 import { warpClient } from "./warpClient.ts";
-import { REFRESH_TOKEN } from "./constants.ts";
+import { REFRESH_TOKEN } from "./stockbitAuth.ts";
 
 const BASE = "https://exodus.stockbit.com";
 
 // All token fields are COMPLETE Authorization header strings ("Bearer <jwt>"), matching
-// the form stored in constants.ts.  A raw JWT only becomes a "Bearer ..." string below,
+// the form stored in stockbitAuth.ts.  A raw JWT only becomes a "Bearer ..." string below,
 // where the API response is read; nowhere else should prepend "Bearer ".
 export interface RefreshedTokens {
     token: string; // "Bearer <jwt>", new access, ready for the Authorization header
@@ -42,12 +42,12 @@ export const refreshAccessToken = async (
     };
 };
 
-// Rewrite net/constants.ts in place with the new tokens. Needs --allow-read + --allow-write.
+// Rewrite net/stockbitAuth.ts in place with the new tokens. Needs --allow-read + --allow-write.
 // Both args are full "Bearer ..." strings and are written verbatim.
 export const persistTokens = async (
     { token, refreshToken }: { token: string; refreshToken: string },
 ): Promise<void> => {
-    const path = new URL("./constants.ts", import.meta.url);
+    const path = new URL("./stockbitAuth.ts", import.meta.url);
     let src = await Deno.readTextFile(path);
     src = src.replace(
         /export const TOKEN =\s*"[^"]*";/,

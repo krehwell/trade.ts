@@ -1,6 +1,5 @@
-// What is the bandar buying today? Cross-section counterpart of bandarHistory:
-// one date, ALL stocks — SM broker set net flow ranked, with price context.
-// Data for today is empty until EOD finalization (~6PM WIB); pass a date for history.
+// What's bandar buying on a given day? One date, all stocks, SM flow ranked.
+// Today is empty until ~6PM WIB (EOD finalization), so pass a past date meanwhile.
 //   deno task bandar-top [date=today] [n=15]
 import { fetchBrokerActivity, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDailyMulti } from "./data/stockbitCandles.ts";
@@ -14,7 +13,7 @@ console.log(`\n=== SM net flow ${date} (brokers: ${SM_BROKERS.join(",")}) ===`);
 const flow = await fetchBrokerActivity({ brokers: SM_BROKERS, from: date, to: date });
 const ranked = Object.entries(flow).sort((a, b) => b[1] - a[1]);
 if (ranked.length === 0) {
-    console.log("No data — broker activity finalizes ~6PM WIB; try yesterday's date.");
+    console.log("No data. Broker activity finalizes ~6PM WIB, try yesterday's date.");
     Deno.exit(0);
 }
 

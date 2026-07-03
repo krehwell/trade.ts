@@ -1,5 +1,5 @@
 import { warpClient } from "./warpClient.ts";
-import { TOKEN } from "./constants.ts";
+import { TOKEN } from "./stockbitAuth.ts";
 import { persistTokens, refreshAccessToken } from "./refreshToken.ts";
 
 const BASE = "https://exodus.stockbit.com";
@@ -9,7 +9,6 @@ let authToken = TOKEN;
 let refreshing: Promise<void> | null = null;
 
 // On 401: refresh the access token once (deduped across concurrent calls),
-// persist to constants.ts if write perms allow, otherwise keep it in memory.
 const ensureFreshAuth = (): Promise<void> => {
     if (!refreshing) {
         refreshing = (async () => {

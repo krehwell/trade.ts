@@ -12,7 +12,7 @@ When asked to analyze or build:
 
 # Daily Workflow
 
-1. **Validate** — Check token (`net/constants.ts`; `deno task refresh` if expired — see Token Refresh), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
+1. **Validate** — Check token (`net/stockbitAuth.ts`; `deno task refresh` if expired — see Token Refresh), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
 2. **Regime** — Run `deno task daily`. Note regime, breadth, top inflows, candle data.
 3. **Scan** — Full market screener (top 50 by bandar), compute daily deltas, rank by flow
 4. **Analyze** — Pull candles for top flow stocks, check price action, flag traps (see Analysis Checklist below)
@@ -148,77 +148,83 @@ From actual SIT_OUT price action (breadth ~20%):
 - Deno + TypeScript (ESM imports with `.ts` extensions)
 - All function parameters as single object: `fetchX({ param1, param2 })`
 - Export interfaces for all param/return types so callers know what pass
-- Token lives in `net/constants.ts`, no .env
+- Token lives in `net/stockbitAuth.ts`, no .env
 - Build small reusable utilities first, compose in entry scripts
 - Keep functions flexible with sensible defaults
 - No over-engineering. No abstractions for one-time use.
-- Use native `fetch` (not node:https) — Deno has built-in
-- All Stockbit API requests via `net/stockbitFetch.ts` (auth + base URL baked in)
-- Candles via `data/stockbitCandles.ts` — Stockbit chartbit (near-realtime), auto-falls back to Yahoo (`data/yahooCandles.ts`) when chartbit has no data or for index symbols. Don't import `yahooCandles` directly for candles.
-- Shared TA formulas (MA, slope, distance, avg volume) live in `market/indicators.ts` — never re-derive them inline
+- Use native `fetch` (not node:https), Deno has it built in
+- All Stockbit API requests go through `net/stockbitFetch.ts` (auth and base URL baked in)
+- Candles come from `data/stockbitCandles.ts`. It uses Stockbit chartbit (near-realtime) and falls back to Yahoo (`data/yahooCandles.ts`) when chartbit has no data or for index symbols. Don't import `yahooCandles` directly for candles.
+- Shared TA formulas (MA, slope, distance, avg volume) live in `market/indicators.ts`. Never re-derive them inline.
 
 # API Quirks
 
 - Screener only returns data for FILTER columns, not sequence columns
-- BANDAR_VALUE is cumulative — daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`
-- BANDAR_PREV_VALUE must be added as dummy filter to be returned
-- Stocks can show large positive cumulative but be NET SELLING today — always compute delta
+- BANDAR_VALUE is cumulative, so daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`
+- BANDAR_PREV_VALUE must be added as a dummy filter to be returned
+- A stock can show a big positive cumulative but be net selling today, so always compute the delta
 - Screener `name` field must be non-empty (use `"screen"`)
-- Screener has NO date parameter — always returns current data
-- **Bandar/SM history IS available** — not via screener (BANDAR_VALUE = snapshot-only, and all per-stock bandar-detector/broker-summary endpoint guesses 404), but `/order-trade/broker/activity` accepts arbitrary `from`/`to`. Loop per trading day + sum SM broker set = day-by-day accumulation timeline. That's `bandarHistory.ts` (`deno task bandar SYM [days]`).
-- Broker activity returns max 200 buy + 200 sell per request — thin stocks can silently drop out of a broker's top-200 on quiet days
-- **Broker activity rate limit**: >~40 near-parallel requests → empty payloads that sum as silent zeros (looks like "no flow", actually dropped data). `fetchBrokerActivity` fetches sequentially with 150ms delay for this reason — don't parallelize it again.
-- **Broker codes go stale**: MS (Morgan Stanley) + CG (Citigroup) deregistered from IDX (removed Jul 2026). Invalid codes return `"Kode broker salah"` and used to fail silently as {}. Validate new codes against `/order-trade/broker/top` (`fetchTopBrokers`). Canonical SM set lives in `data/fetchBrokerActivity.ts` (`SM_BROKERS`), imported by picker.
-- Broker activity for TODAY returns 0 until EOD finalization (~6PM WIB) — a zero last row in `bandar` output during market hours means "not final yet", not "no flow"
-- Chartbit serves per-stock candles again (no longer paywalled): `GET /chartbit/{TICKER}/price/daily` and `/intraday`
-- Chartbit daily `from`/`to` are `YYYY-MM-DD` with **from=newer, to=older** (counterintuitive); intraday `from`/`to` are unix seconds + `minutes_multiplier`
-- Chartbit ticker is the **bare** symbol (`BBCA`); Yahoo wants `.JK` (`BBCA.JK`) — `stockbitCandles.ts` normalizes both, and routes index symbols (`^JKSE`) straight to Yahoo
-- Chartbit daily `unixdate` is 00:00 WIB (= previous UTC day) — `stockbitCandles.ts` anchors to the calendar date so day-labels match Yahoo
-- A few illiquid/suspended tickers have no chartbit data — covered by the Yahoo fallback
-- IHSG Yahoo ticker: `^JKSE` | IDX stocks: auto-appended `.JK`
+- Screener has no date parameter, it always returns current data
+- Bandar/SM history is available, just not through the screener. BANDAR_VALUE is snapshot-only and every per-stock bandar-detector or broker-summary endpoint guess 404s, but `/order-trade/broker/activity` takes an arbitrary `from`/`to`. Loop per trading day and sum the SM broker set to get the day-by-day accumulation timeline. That's what `bandar` does.
+- Broker activity returns max 200 buy and 200 sell per request. Thin stocks can silently drop out of a broker's top-200 on quiet days.
+- Broker activity is rate-limited. More than ~40 near-parallel requests come back as empty payloads that sum to silent zeros (looks like no flow, actually dropped data). `fetchBrokerActivity` fetches sequentially with a 150ms delay for this reason. Don't parallelize it again.
+- Broker codes go stale. MS (Morgan Stanley) and CG (Citigroup) were deregistered from IDX (Jul 2026). Invalid codes return `"Kode broker salah"` and used to fail silently as `{}`. Validate new codes against `/order-trade/broker/top` (`fetchTopBrokers`). The canonical SM set lives in `data/fetchBrokerActivity.ts` (`SM_BROKERS`).
+- Broker activity for today returns 0 until finalization around 6PM WIB. A zero last row in `bandar` output during market hours means "not final yet", not "no flow".
+- Live orderbook comes from Growin, not Stockbit. Stockbit's own `/orderbook/{SYM}` and `/order-trade/running-trade` are 402 paywalled. Growin (Mirae, `api.growin.id`) serves real-time IDX depth over a protobuf WebSocket at `wss://api.growin.id/marketws/ws`, and `data/growinDepth.ts` decodes it (wire schema is in the `growin-live-orderbook` memory). Three things that cost time: Deno's `WebSocketStream` speaks HTTP/2 which the server rejects, so hand-roll the HTTP/1.1 handshake over TLS with `alpnProtocols:["http/1.1"]`; the upgrade needs a full browser header set (`Accept`, `Sec-Fetch-*`) or Akamai 403s it; and the payload's best bid/ask fields are unreliable, so read the inside market off the ladder. Growin's REST `/marketdata/api/v1/orderbook/{SYM}` only returns metadata, depth is WS-only.
+- Chartbit intraday is delayed about 10 minutes on the free tier (fetched 09:50 WIB, last candle 09:40). Fine as a semi-live tape, not true real-time.
+- Chartbit serves per-stock candles again (no longer paywalled): `GET /chartbit/{TICKER}/price/daily` and `/intraday`.
+- Chartbit daily `from`/`to` are `YYYY-MM-DD` with from=newer, to=older (counterintuitive). Intraday `from`/`to` are unix seconds plus `minutes_multiplier`.
+- Chartbit ticker is the bare symbol (`BBCA`), Yahoo wants `.JK` (`BBCA.JK`). `stockbitCandles.ts` normalizes both and routes index symbols (`^JKSE`) straight to Yahoo.
+- Chartbit daily `unixdate` is 00:00 WIB (the previous UTC day), so `stockbitCandles.ts` anchors to the calendar date to match Yahoo's day labels.
+- A few illiquid or suspended tickers have no chartbit data. The Yahoo fallback covers them.
+- IHSG Yahoo ticker is `^JKSE`. IDX stocks get `.JK` auto-appended.
 
 # Token Refresh
 
-The auth token in `net/constants.ts` is the **exodus** data token (`iss: STOCKBIT`, RS256, ~24h). All scanner tools use it.
+The auth token in `net/stockbitAuth.ts` is the exodus data token (`iss: STOCKBIT`, RS256, ~24h). All scanner tools use it.
 
-- **Refresh endpoint:** `POST https://exodus.stockbit.com/login/refresh` with header `Authorization: Bearer <REFRESH_TOKEN>`, empty body. Returns `{ data: { access: {token, expired_at}, refresh: {token, expired_at} } }`.
-- **Refresh token** (`data.typ: refresh`, ~7d life) is NOT the access token. Source: browser localStorage key `credentialStorage` (URL-encoded JSON → `state.refresh.token`). It is stored encoded under loose keys `at`/`ar`, so read `credentialStorage` instead.
-- **SINGLE-USE + SESSION ROTATION:** each refresh invalidates BOTH old tokens (access AND refresh) and issues a new pair. The new refresh token MUST be persisted or the next call is `UNAUTHORIZED`. Because it rotates the whole session, the **bot and a browser cannot share one login** — whoever refreshes logs the other out. Give the bot its own dedicated login session.
-- **Code:** `net/refreshToken.ts` (`refreshAccessToken` + `persistTokens`), `refresh.ts` (`deno task refresh`, has `--allow-read --allow-write`). `stockbitFetch.ts` auto-refreshes once on 401, dedupes concurrent refreshes, persists if write perms allow. Don't run two tools concurrently on an expired token — they'd double-refresh and invalidate each other.
-- **DEAD END:** `api-sekuritas.stockbit.com/partner/eipo/access_token` returns `EIPO_PARTNER_ACCESS_TOKEN` (HS256, partner-scoped, 60s/10min) for the EIPO/trading module — NOT the exodus data token. Cannot refresh `constants.ts`.
+- Refresh endpoint: `POST https://exodus.stockbit.com/login/refresh` with header `Authorization: Bearer <REFRESH_TOKEN>` and an empty body. Returns `{ data: { access: {token, expired_at}, refresh: {token, expired_at} } }`.
+- The refresh token (`data.typ: refresh`, ~7d) is not the access token. It comes from the browser localStorage key `credentialStorage` (URL-encoded JSON, then `state.refresh.token`). It's stored encoded under loose keys `at`/`ar`, so read `credentialStorage`.
+- Single-use with session rotation. Each refresh invalidates both old tokens and issues a new pair, and the new refresh token has to be persisted or the next call is `UNAUTHORIZED`. Because it rotates the whole session, the bot and a browser can't share one login: whoever refreshes logs the other out. Give the bot its own login.
+- Code: `net/refreshToken.ts` (`refreshAccessToken` and `persistTokens`), `refresh.ts` (`deno task refresh`, has `--allow-read --allow-write`). `stockbitFetch.ts` auto-refreshes once on 401, dedupes concurrent refreshes, and persists if write perms allow. Don't run two tools at once on an expired token, they'd double-refresh and invalidate each other.
+- Dead end: `api-sekuritas.stockbit.com/partner/eipo/access_token` returns `EIPO_PARTNER_ACCESS_TOKEN` (HS256, partner-scoped, 60s/10min) for the EIPO/trading module, not the exodus data token. It can't refresh `stockbitAuth.ts`.
 
 # Project Structure
 
 Layout: **entry points at root**, everything else grouped by role into `market/` `data/` `net/` `util/`.
 
 ## Entry Points (root)
-- `daily.ts` (`deno task daily`) — **RUN FIRST EACH SESSION.** Regime via the shared `detectRegime` (**same verdict as the picker** — one source of truth, no divergent daily heuristic) → IHSG technicals + last-10 candle table → full screener scan → candles for top flow stocks.
-- `picker.ts` (`deno task pick`) — Automated gated scoring pipeline (regime → bandar → SM broker flow → scoring → picks)
-- `analyzeStock.ts` (`deno task analyze SYM`) — Per-stock technical analysis CLI: MA distances, vol ratios, structure, red flags
-- `bandarHistory.ts` (`deno task bandar SYM [days=20]`) — Day-by-day SM/bandar net flow vs price for one stock. Reconstructs the accumulation/distribution timeline the screener can't show. ~13 requests per day of history (sequential, rate-limit safe) → 20d ≈ 1 min. Use to answer "when did bandar load/unload, and did price follow?"
-- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`) — Cross-section counterpart of `bandar`: ONE date, ALL stocks — SM net flow ranked (top inflow + outflow) with close/chg% context. Use to answer "what is bandar buying today/on date X?" Today is empty until ~6PM WIB finalization — the tool says so and suggests yesterday.
-- `refresh.ts` (`deno task refresh`) — Refresh exodus token via `/login/refresh`, rewrite `net/constants.ts`. See Token Refresh.
+Notation: `<required>`, `[optional=default]`.
+- `daily.ts` (`deno task daily`). Run first each session. Detects regime with the shared `detectRegime` (same verdict as the picker), then prints IHSG technicals and the last-10 candle table, runs the full screener scan, and pulls candles for the top flow stocks.
+- `picker.ts` (`deno task pick`). Gated scoring pipeline: regime, then bandar, then SM broker flow, then scoring, then picks.
+- `analyzeStock.ts` (`deno task analyze <symbol>`). Per-stock TA: MA distances, vol ratios, structure, red flags.
+- `bandarHistory.ts` (`deno task bandar <symbol> [days=20]`). One stock's day-by-day SM flow against price. This is the accumulation timeline the screener can't show. Takes about a minute for 20 days. Use it to see when bandar loaded or unloaded and whether price followed.
+- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`). One day, all stocks, SM flow ranked with close and chg%. The inverse of `bandar`: what did bandar buy that day. Today is empty until finalization around 6PM WIB.
+- `orderbook.ts` (`deno task orderbook <symbol>`). Live bid/offer ladder from Growin, the depth Stockbit paywalls. Shows 10 levels, inside market, and volume imbalance. Market hours only. See the Live Orderbook quirk below.
+- `refresh.ts` (`deno task refresh`). Renews the Stockbit token via `/login/refresh` and rewrites `net/stockbitAuth.ts`. See Token Refresh.
 
 ## market — domain logic
-- `market/marketRegime.ts` — Regime detector (IHSG trend + breadth + trap filters) → SIT_OUT/DEFENSIVE/NORMAL/AGGRESSIVE
-- `market/indicators.ts` — shared TA formulas: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume` (self-check: `deno run market/indicators.ts`)
+- `market/marketRegime.ts`. Regime detector (IHSG trend, breadth, trap filters) returning SIT_OUT / DEFENSIVE / NORMAL / AGGRESSIVE.
+- `market/indicators.ts`. Shared TA formulas: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume`. Self-check with `deno run market/indicators.ts`.
 
 ## data — market data sources
-- `data/stockbitCandles.ts` — **candle source of record.** Stockbit-first with Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes are drop-in for `yahooCandles`.
-- `data/yahooCandles.ts` — Yahoo Finance candles (fallback only): `fetchCandles` + `fetchYahooDaily` + `fetchYahooDailyMulti`. (Named for its role — a candle source, peer of `stockbitCandles`, not a transport wrapper.)
-- `data/fetchScreener.ts` — Stockbit screener API
-- `data/fetchBrokerActivity.ts` — SM/retail broker flow across timeframes; exports canonical `SM_BROKERS` set; sequential fetching (rate-limit safe, warns on invalid broker/empty payload)
-- `data/screenerItems.ts` — Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc.)
+- `data/stockbitCandles.ts`. The candle source of record. Stockbit first, Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes match `yahooCandles`.
+- `data/yahooCandles.ts`. Yahoo candles, fallback only: `fetchCandles`, `fetchYahooDaily`, `fetchYahooDailyMulti`.
+- `data/fetchScreener.ts`. Stockbit screener API.
+- `data/fetchBrokerActivity.ts`. SM and retail broker flow across timeframes. Owns the canonical `SM_BROKERS` set. Fetches sequentially so it stays under the rate limit, and warns on an invalid broker or empty payload.
+- `data/screenerItems.ts`. Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc).
+- `data/growinDepth.ts`. Live orderbook depth from Growin over a protobuf WebSocket. Self-contained: a small protobuf reader/writer plus a manual HTTP/1.1 WS handshake over TLS. `fetchDepthSnapshot({symbol})` grabs one frame then closes. See the Live Orderbook quirk.
 
 ## net — transport, auth, config
-- `net/stockbitFetch.ts` — Stockbit fetch wrapper with auth (auto-refreshes on 401)
-- `net/warpClient.ts` — HTTP client; optional SOCKS proxy (enabled on VPS, commented locally)
-- `net/refreshToken.ts` — `refreshAccessToken` (POST /login/refresh) + `persistTokens` (rewrites `constants.ts`)
-- `net/constants.ts` — `TOKEN` (access, ~24h) + `REFRESH_TOKEN` (~7d). See Token Refresh section.
+- `net/stockbitFetch.ts`. Stockbit fetch wrapper with auth, auto-refreshes on 401.
+- `net/warpClient.ts`. HTTP client with an optional SOCKS proxy (on for the VPS, commented out locally).
+- `net/refreshToken.ts`. `refreshAccessToken` (POST /login/refresh) and `persistTokens` (rewrites `stockbitAuth.ts`).
+- `net/stockbitAuth.ts`. Stockbit auth: `TOKEN` (access, ~24h) and `REFRESH_TOKEN` (~7d). See Token Refresh.
+- `net/growinAuth.ts`. Growin (Mirae) session cookie for the live orderbook. This is a separate login from Stockbit and it's short-lived. Refresh it by pasting the browser Cookie header (DevTools, any api.growin.id request, Copy as cURL). Only `orderbook.ts` and `growinDepth.ts` use it.
 
 ## util — pure helpers
-- `util/date.ts` — Date helpers
-- `util/print.ts` — Terminal output formatting
+- `util/date.ts`. Date helpers.
+- `util/print.ts`. Terminal output formatting.
 
 # Scoring System (picker.ts)
 

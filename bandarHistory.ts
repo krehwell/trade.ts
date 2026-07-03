@@ -1,8 +1,6 @@
-// Day-by-day SM/bandar net flow history for one stock, plotted against price.
-// Reconstructs what the screener's BANDAR_VALUE can't give (snapshot-only): the
-// accumulation/distribution timeline. One broker/activity call per SM broker per
-// day, sequential — ~13 requests/day, so 20d ≈ 1 min. Usage:
-//   deno task bandar SYM [days=20]
+// Day-by-day SM/bandar net flow vs price for one stock. The accumulation timeline
+// the screener's snapshot BANDAR_VALUE can't show. About 13 requests per day, so 20d takes ~1 min.
+//   deno task bandar <symbol> [days=20]
 import { fetchBrokerActivity, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDaily } from "./data/stockbitCandles.ts";
 
@@ -21,7 +19,7 @@ if (recent.length === 0) {
     Deno.exit(1);
 }
 
-console.log(`\n=== ${symbol} — SM net flow per day (${recent.length}d, brokers: ${SM_BROKERS.join(",")}) ===\n`);
+console.log(`\n=== ${symbol} SM net flow per day (${recent.length}d, brokers: ${SM_BROKERS.join(",")}) ===\n`);
 console.log("date        close    chg%      flow      cum");
 
 let cum = 0;
@@ -41,4 +39,4 @@ for (let i = 0; i < recent.length; i++) {
 }
 
 console.log(`\nCum ${recent.length}d SM flow: ${(cum / 1e9).toFixed(1)}B`);
-console.log("Note: per-broker top-200 rows only — thin stocks can drop out of a broker's list on quiet days.");
+console.log("Note: per-broker top-200 rows only, so thin stocks can drop out of a broker's list on quiet days.");
