@@ -6,7 +6,7 @@
     "analyze": "deno run --unstable-http --allow-net analyzeStock.ts",
     "bandar": "deno run --unstable-http --allow-net bandarHistory.ts",
     "bandar-top": "deno run --unstable-http --allow-net bandarToday.ts",
-    "orderbook": "deno run --unstable-net --allow-net orderbook.ts",
+    "orderbook": "deno run --unstable-net --env-file --allow-net --allow-env orderbook.ts",
     "trap": "deno run --unstable-http --allow-net trapCheck.ts"
   },
   "compilerOptions": {

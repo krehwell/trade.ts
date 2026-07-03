@@ -1,6 +1,78 @@
-// Growin (Mirae) session cookie for the live orderbook (data/growinDepth.ts).
-// This is a separate login from Stockbit: different broker, different domain (api.growin.id),
-// fronted by Akamai, and short-lived (~hours). To refresh, in the browser open DevTools,
-// go to Network, find any api.growin.id request, Copy as cURL, and paste its Cookie value here.
-export const GROWIN_COOKIE =
-  "AKA_A2=A; login_device_uid=D75zeTRaIvGzrjR9; REFRESH_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMwNjkxMDMsImp0aSI6ImV5SmhiR2NpT2lKU1UwRXhYelVpTENKbGJtTWlPaUpCTVRJNFEwSkRMVWhUTWpVMkluMC5BVFVrX3R2Zlpxclc3UXRGSmpkZWFmOG9fUEU2WU91UV9nS2lCdmFUV2dBU1ZfNUpiTjFMSWVDbDR4Rm1lQ0o4M0dtT3Vxemp6cWFnZlR1bWtDNDltQzJYZC03dkgzdWJJWmhlMk44aTRsdE5tUlpMUXZ5eXc5eVl5ckhsTUVFQzRwdDFoXzhHa2pZRzFEVFlnUGdhQWx4U2YxX1dPLVl6c3pTOGdUTGR2b0JMaXZWdHd2TVMzYy1zS1NMTXBJbVVIb0NEbWdsNTlwcDZvaV8ydkhRMndBY1F3WUpsTkNSbTVYTm5UNzQ3N1IxU2VfVTZwczhaeDBCejAwMWZTcTd0Tml6TjB1TmVsaTVJTGhqZ19xQlBqMlpJNzJFNDR5YUx0VjBlZ1J5QlQ3UEpwS3MybVVxUmdUZERjT19NOENvSl9RZ056NTFwbkdxcE5mdV8zWFlZRGxGSGJVZUZfU1JYbFQxTl9jU2VQU0lydkRad25ZbXRHd2tyalRSU1VmMUk0NFRETFBKSXN0RzdnWlhUekY1QTZuNFduYUhiUHlNakhlNHhjbUJrYnB1QUhQM2swbmoxUlY5RFgtTXlIbjJ0dmpubmw1c095SEM5VzJuNTgzUHloT3E0SExaZENyNDk1TG12Z0xoY1NNQWVrcXpLWlBGWFRQcE0yY0pYQmROVTh1ME9yTlg0NWpHM1pUN29BdVBBRHhHQzV2NGpTV01salVQOXcyQjJiVkN4MHE4czFQOVN2Y1lySDBsYmZYRjdNVWVBOVc2UHZ6WmU2UXVGRmx5XzFjRDZyYU5MLTlSNDFUSXFCbzItbENPSHRwMHhQMUg4ekdlcjJyZmFnSWJ3bUtSdUlOejNzdm9NTkktNEE0bDd4UG5uTndQeWczZExwcnpxR29qUF8wSS56Z2VWcVBuTjZfdWVwMHJvZTVQLXlnLmpGVHZ5LUk5SHNiVGZCSmpIb2FPbmw1bkdYcGxYYmtZbzVHNFlSU1FyZHc3a2pSa21tTERfR3lEelBZNFFQUTYwSVdzckNBUGk0ZDcwWGotdk5TVi1vazRhUXdqMG9vSms5d0hyQVVJYWlDWVpzQ3BjaXRVVWllSURZTDlPVWNlVmRIVmttc1BUSDdTY2FyVW1FZ2RXYXdibjVZMUFWbDQ0anJnTlhKUGdhMmU2MWJoNkhQOFIzdDNFYjRNZTU5T29lYjU1dE1fZ2ZXdWJNdUtLTTd5RGYtUjhUY21yQ0wtcVQtUmtCdm9XUGY5QlhJdzEwR21xbGxmYWNzNFVjOGZkZm10dl9kZFZDZHlWZ3FtNW9WeGpzc050RGpoMlZnTGxHWi0tcWdOb2FCUkdya19YLUV5bXNFZUMyMWZyRVRUcS1DdXI3OUljdlAxcGw3SHpYRnUtcFZCeEdJQWMzWU0xdzAtVHFkZk9mOHFsTExNY3B6c2xNMm1KRDhmcUhodGZPYjRUMEhhenpPQjJYWUR5WUV2NnhZSFhQbHJfT3lobE5VRE90RWpvcGsuaUV1RGpPS3p1VGxjaTdJaXVHam54ZyIsInJlZiI6IjA1ODY5NTU4Iiwic3ViIjoiNTg2OTU1OCJ9.sDoIjfsoAfOimLFdC5mYacaOdKetw_wLBcMzyv5yoZw; ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMwNTgzMDMsImp0aSI6ImV5SmhiR2NpT2lKU1UwRXhYelVpTENKbGJtTWlPaUpCTVRJNFEwSkRMVWhUTWpVMkluMC50M2U5RTAxSURPLWNPbllzNzk3ZVNkakNmeUVMZmV6ek5mN0JjNGQ2V1NzQjJGNnRUb3F3U1RTMlNTc3hsc21BMXJJVTMzSEk1bzVnXzdSUVpEMUlkM1lVYVh2dGZoc2dRVTBaa3dUNFo1Y2RTYmtFeXdaMlY3WGhlSHE0R3pZZjJLWkkxaDNHc2FmcTczY2FkRS0tTm96MWlfX1RVTGQxUWY0bkxVRlRieEd6MUZaVVprQXQ2MTQ3bElnUlNacDlDUlV1U3p5SDFiSHl5c1ZReE52bW84bTRMeDdEcDByczdab2pSaGlWcjI1cmg5YjA5ZmVaQ1VmbVBNZ09rMHJ5R3dWaTRYTktLOXpUc04wN3I1U3NmSG1BNjFScFRfaWZOV0I2ZHJ5OUYyYXJSUFFhWHlkS01sLVJ2bEI5dkhmWV9kZGNZRExXT2Jqc295OTR1cFhGdDR0LWljODQwMXdkNHgwQjJXdGEzTUE1YTN4SXh3QkM5RGhmczNCS1pFbjBUWjN6ZS10amxTZWZHUlNVQXFGbHM0VThSclRUTUwtOHpzQWZpRWJuRDhQbV9NT0JJY1NjOWtTem80dDFxOGktOWttOUhvWVFHeVByQ29aeE5pNmd5WDNIWUR5MHZqZEx1NHJqSnpPbzNnOHYxTmVUVFZUdDU2cjRSd1IzdUZjcnBIbGFrOEtnRHUyTUdEdXV2Rks0Tkhjd0IyNmxTZ0UxXzU2ZDNKSmpmR3U1X3RxS1QzRXVHMi1qZVljdFBmS081RFhoSG9xVlk3NHFBQUExX0xpenBuS2dBbFROZl9BblpvZDYxYU9iSWtVck9YanVQaWk4QmlocG94U0xKdC01ZTJCaVJqdVpKYlRMMlA3NUt3d3FyMTl5WnBnYnNHcEIyUmFUNFJUVlB0MC5ENkRqd3YwWldfWmY1S2RucWJUcnhRLkFwLWxUSlkzb3hCYUk5ZTlaQ0lwbHJqZEtCWWVfZjFUQVhweHdtaDNzZUVqQkc4OGZTUXlZVUZSQTdtM0paejN2WW82NWl2NjZnOF9QM3ZTeU5wQ3dHZ3NRcGpsMjk5bkQ1TEk4cTlsYnJHa2tvZzA3X2d5MkhUV1J0dF80cWxxcGRaWTZWUENJQW5EemtpQ250NHNpNmlBalMxaWdvR2ZBWmZNMXhfY0k0Nzlfb1RneEZPakJ3UWRndTVGV0xfVlJWVGtVM0VoRjRTZ1BvLWMxdEItMy01MjhMYks4MEtVWkxfODZnVnZWcW9FNHl3YkF4Z19aSHN1blBmOHNnNjBJdXMxcERCWmM2YjRqRXRaaHE1N3d1RlJ1RktlR1BlZEgwR3hRQzJSNEkxUzZja3Z3bVNMdWVfU1VmSS1PSXhfN3ZyZkFCbG1zMWRVRE5adGNRcGFkU3ZxRGFYYmZmZF9jbENPeHRqN29mNW94RkdoTlRHa0JkUGxuYU04NzdGQXJaQWJMNkxvdXlIcHo3bl9jMFpxVERpaTU5Qy0tOXR1bnZfdzBwc0doTzAuR0tCNmJRMFE3eklwVll6UGNTcWJpdyIsInJlZiI6IjA1ODY5NTU4Iiwic3ViIjoiNTg2OTU1OCJ9.jFKukUER6fH8CO-OeQcX2mvkxzz6cJqACi0lUGrZtHI";
+// Growin (Mirae) login for the live orderbook (data/growinDepth.ts).
+// getGrowinCookie() logs in and builds a fresh session cookie every run, so nothing to paste
+// and nothing expires. Creds live in .env (loaded via the task's --env-file).
+// Heads up: Growin is single-session per device. Logging in here logs this account out
+// everywhere else (phone, laptop), so give the bot its own account.
+const env = (k: string): string | undefined => {
+  try {
+    return Deno.env.get(k);
+  } catch {
+    return undefined; // no --allow-env
+  }
+};
+
+const GROWIN_EMAIL = env("GROWIN_EMAIL");
+const GROWIN_PASSWORD = env("GROWIN_PASSWORD");
+const DEVICE_ID = env("GROWIN_DEVICE_ID"); // reused as x-device-id + login_device_uid
+
+export const getGrowinCookie = async (): Promise<string> => {
+  if (!GROWIN_EMAIL || !GROWIN_PASSWORD || !DEVICE_ID) {
+    throw new Error(
+      "Missing Growin creds. Fill GROWIN_EMAIL / GROWIN_PASSWORD / GROWIN_DEVICE_ID in .env (loaded via --env-file).",
+    );
+  }
+  const res = await fetch("https://api.growin.id/auth/api/v1/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:152.0) Gecko/20100101 Firefox/152.0",
+      Accept: "application/json, text/plain, */*",
+      "Accept-Language": "en",
+      Origin: "https://invest.growin.id",
+      Referer: "https://invest.growin.id/",
+      "x-app-name": "web",
+      "x-app-version": "v1.0.0",
+      "x-device-id": DEVICE_ID,
+      Cookie: `AKA_A2=A; login_device_uid=${DEVICE_ID}`,
+    },
+    body: JSON.stringify({
+      login: GROWIN_EMAIL,
+      password: GROWIN_PASSWORD,
+      recaptcha: "mobile",
+    }),
+  });
+  const body = await res.text();
+  let j: {
+    message?: string;
+    data?: {
+      token?: string;
+      refresh_token?: string;
+      is_password_expired?: boolean;
+      is_otp_verified?: boolean;
+    };
+  };
+  try {
+    j = JSON.parse(body);
+  } catch {
+    // Not JSON = blocked before the API (Akamai 403 HTML, etc)
+    throw new Error(
+      `Growin login blocked (HTTP ${res.status}, non-JSON response). Akamai edge likely rejected it. ` +
+        `Re-grab a working request from the browser (DevTools > Network > /auth/api/v1/login > Copy as cURL) ` +
+        `and reconcile headers/device-id in net/growinAuth.ts (GROWIN_DEVICE_ID lives in .env).`,
+    );
+  }
+  const d = j.data;
+  if (!d?.token) {
+    // Login reached the API but was rejected. Say why and what to do.
+    const hint = d?.is_password_expired
+      ? "password expired, reset it in the Growin app"
+      : d?.is_otp_verified === false
+      ? "account needs OTP verification, log in once in the app to clear it"
+      : "wrong email/password, or the account is locked. Update GROWIN_EMAIL/GROWIN_PASSWORD in .env";
+    throw new Error(
+      `Growin login failed: ${j.message ?? "no token returned"}. ${hint}.`,
+    );
+  }
+  return `AKA_A2=A; login_device_uid=${DEVICE_ID}; REFRESH_TOKEN=${d.refresh_token}; ACCESS_TOKEN=${d.token}`;
+};

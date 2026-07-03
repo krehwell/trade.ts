@@ -15,7 +15,7 @@ Trading tools for the Indonesia Stock Exchange (IDX). Reads market regime, banda
 Needs [Deno](https://deno.land/).
 
 1. Put a Stockbit token in `net/stockbitAuth.ts` (`deno task refresh` renews it).
-2. For live orderbook only: paste a Growin cookie into `net/growinAuth.ts` (see that file).
+2. For live orderbook only: fill in the Growin login in `.env` (it logs in and refreshes the session itself).
 3. Run `deno task daily` first, then dig in.
 
 ## Tasks
@@ -58,7 +58,7 @@ net/
   warpClient.ts      HTTP client (optional SOCKS proxy for VPS)
   refreshToken.ts    token refresh + persist to stockbitAuth.ts
   stockbitAuth.ts    Stockbit tokens (access ~24h + refresh ~7d)
-  growinAuth.ts      Growin cookie for live orderbook (separate login)
+  growinAuth.ts      Growin login for live orderbook (creds from .env, auto-refreshes)
 util/
   date.ts    date helpers
   print.ts   terminal formatting

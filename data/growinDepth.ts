@@ -3,7 +3,7 @@
 // speaks HTTP/2 which the server rejects, so we hand-roll the HTTP/1.1 WS handshake over TLS
 // plus a tiny protobuf reader/writer. Snapshot: connect, subscribe, grab one frame, close.
 // Wire schema was reverse-engineered from the web bundle, see the growin-live-orderbook memory.
-import { GROWIN_COOKIE } from "../net/growinAuth.ts";
+import { getGrowinCookie } from "../net/growinAuth.ts";
 
 export interface DepthLevel { ask: boolean; price: number; volume: number; orders: number; }
 export interface Depth {
@@ -116,6 +116,7 @@ export const fetchDepthSnapshot = async ({ symbol, limit = 10, timeoutMs = 7000 
     symbol: string; limit?: number; timeoutMs?: number;
 }): Promise<Depth> => {
     const sym = symbol.toUpperCase();
+    const cookie = await getGrowinCookie();
     const conn = await Deno.connectTls({ hostname: "api.growin.id", port: 443, alpnProtocols: ["http/1.1"] });
     const req = [
         "GET /marketws/ws HTTP/1.1", "Host: api.growin.id",
@@ -124,7 +125,7 @@ export const fetchDepthSnapshot = async ({ symbol, limit = 10, timeoutMs = 7000 
         "Sec-WebSocket-Version: 13", `Sec-WebSocket-Key: ${wsKey}`,
         "Origin: https://invest.growin.id",
         "Sec-Fetch-Dest: empty", "Sec-Fetch-Mode: websocket", "Sec-Fetch-Site: same-site",
-        `Cookie: ${GROWIN_COOKIE}`,
+        `Cookie: ${cookie}`,
         "Connection: keep-alive, Upgrade", "Upgrade: websocket", "", "",
     ].join("\r\n");
     await conn.write(new TextEncoder().encode(req));
@@ -139,7 +140,17 @@ export const fetchDepthSnapshot = async ({ symbol, limit = 10, timeoutMs = 7000 
         const s = new TextDecoder().decode(carry.buf);
         const idx = s.indexOf("\r\n\r\n");
         if (idx >= 0) {
-            if (!s.startsWith("HTTP/1.1 101")) throw new Error(`WS handshake failed: ${s.slice(0, s.indexOf("\r\n"))} (cookie expired? refresh net/growinCookie.ts)`);
+            if (!s.startsWith("HTTP/1.1 101")) {
+                const status = s.slice(0, s.indexOf("\r\n"));
+                // Login just succeeded, so a rejected upgrade means the session was killed
+                // (another device logged in) or the header set no longer satisfies Akamai.
+                throw new Error(
+                    `Growin WS handshake failed: ${status}. The login cookie was rejected. ` +
+                        `Usually means the account logged in elsewhere (Growin is single-session per device), ` +
+                        `so stop other Growin sessions. If it persists, Akamai may want updated headers: ` +
+                        `re-grab wss://api.growin.id/marketws/ws from the browser and reconcile data/growinDepth.ts.`,
+                );
+            }
             carry.buf = carry.buf.subarray(idx + 4); // leftover = start of first WS frame
             break;
         }
