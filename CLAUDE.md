@@ -161,7 +161,7 @@ Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 
 ## Entry points
 - `daily.ts` (`deno task daily`): run first. Regime via shared `detectRegime`, IHSG technicals + last-10 candles, screener scan with deltas, IDX foreign flow + bandar-vs-foreign cross-ref, candles for top-10 inflows
-- `picker.ts` (`deno task pick`): gated pipeline: regime → bandar screener → SM/retail flow → scoring → grades. **Exits on SIT_OUT.** Detail view top 10/7/3 by regime
+- `picker.ts` (`deno task pick`): gated pipeline: regime → bandar screener → SM/retail flow → scoring → grades → Growin veto (ex-date/UMA/suspended, top 15). **Exits on SIT_OUT.** Detail view top 10/7/3 by regime
 - `analyzeStock.ts` (`deno task analyze <symbol>`): per-stock TA as JSON: MA distances, vol ratios, structure, red flags
 - `bandarHistory.ts` (`deno task bandar <symbol> [days=20]`): day-by-day SM flow vs price, ~1min/20d
 - `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`): one day, top/bottom n by SM flow. Empty until ~18:00 WIB
@@ -181,6 +181,7 @@ Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 - `screenerItems.ts`: screener item ID enum
 - `fetchForeignFlow.ts`: IDX foreign flow per stock: `fetchForeignFlow({date})`, `fetchLatestForeignFlow()` (walks back to last trading day). Used by `daily.ts` for the bandar-vs-foreign cross-ref
 - `growinDepth.ts`: `fetchDepthSnapshot({symbol})`, one depth frame over protobuf WS, then close
+- `growinMeta.ts`: `fetchStockMeta({symbol})`, corporate action + UMA + suspension flags from Growin REST. Picker uses it to veto. Cookie cached per run. "no action" = `"--"`, ex-dates start with `X`
 
 ## net
 - `stockbitFetch.ts`: `fetchGET`/`fetchPOST`, auth baked in, auto-refresh on 401

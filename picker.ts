@@ -18,6 +18,7 @@ import { ITEMS } from "./data/screenerItems.ts";
 import { daysAgo, today } from "./util/date.ts";
 import { fmtNum, printHeader, printSubHeader, printTable } from "./util/print.ts";
 import { detectRegime, printRegime } from "./market/marketRegime.ts";
+import { fetchStockMeta } from "./data/growinMeta.ts";
 
 // Fetch screener with specific columns in the results (via sequence param)
 const fetchScreenerWithColumns = async ({ filters, columns, orderCol, orderType = "desc" }: {
@@ -346,6 +347,28 @@ async function main() {
     // Sort by grade (A>B>C>D) then by confirmations within grade
     const gradeOrder = { A: 0, B: 1, C: 2, D: 3, REJECT: 4 };
     candidates.sort((a, b) => gradeOrder[a.grade] - gradeOrder[b.grade] || b.score - a.score);
+
+    // Veto what scoring can't see: suspension, UMA, ex-date mechanical gap.
+    // Top 15 only (one Growin login + 15 REST calls). Skipped with a warn if Growin is down.
+    const checkN = Math.min(candidates.length, 15);
+    try {
+        const kept: Candidate[] = [];
+        for (const c of candidates.slice(0, checkN)) {
+            const m = await fetchStockMeta({ symbol: c.symbol });
+            const veto = m.isSuspended ? "suspended"
+                : m.isUma ? "UMA"
+                : m.corporateAction.startsWith("X") ? `ex-date (${m.corporateActionString})`
+                : "";
+            if (veto) {
+                console.log(`  VETO ${c.symbol}: ${veto}`);
+                continue;
+            }
+            kept.push(c);
+        }
+        candidates.splice(0, checkN, ...kept);
+    } catch (e) {
+        console.log(`  warn: Growin veto skipped, ${(e as Error).message}`);
+    }
 
     // Print results
     const gradeA = candidates.filter(c => c.grade === "A").length;
