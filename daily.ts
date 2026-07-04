@@ -7,6 +7,7 @@
 
 import { fetchCandles } from "./data/stockbitCandles.ts";
 import { fetchScreener } from "./data/fetchScreener.ts";
+import { fetchLatestForeignFlow } from "./data/fetchForeignFlow.ts";
 import { ITEMS } from "./data/screenerItems.ts";
 import { distPct, maSlope, pctChange, sma } from "./market/indicators.ts";
 import { detectRegime, printRegime } from "./market/marketRegime.ts";
@@ -101,9 +102,46 @@ for (let i = 0; i < enriched.length; i++) {
     );
 }
 
-// ─── TOP FLOW CANDLES ───────────────────────────────────────────────────────
+// ─── FOREIGN FLOW (IDX) ─────────────────────────────────────────────────────
 
 const top10 = enriched.filter((s) => s.delta > 0).slice(0, 10);
+
+const { date: ffDate, flows } = await fetchLatestForeignFlow().catch(() => ({ date: "", flows: [] }));
+if (flows.length > 0) {
+    console.log("\n" + "━".repeat(70));
+    console.log(`  FOREIGN FLOW (IDX, ${ffDate})`);
+    console.log("━".repeat(70));
+
+    const byNet = [...flows].sort((a, b) => b.foreignNetValue - a.foreignNetValue);
+    console.log("\nTop 10 foreign net buy:");
+    for (const f of byNet.slice(0, 10)) {
+        console.log(
+            `  ${f.symbol.padEnd(6)} ${("+" + (f.foreignNetValue / 1e9).toFixed(1) + "B").padStart(8)}  close ${String(f.close).padStart(6)}  ${f.chgPct >= 0 ? "+" : ""}${f.chgPct.toFixed(1)}%`,
+        );
+    }
+    console.log("Top 10 foreign net sell:");
+    for (const f of byNet.slice(-10).reverse()) {
+        console.log(
+            `  ${f.symbol.padEnd(6)} ${((f.foreignNetValue / 1e9).toFixed(1) + "B").padStart(8)}  close ${String(f.close).padStart(6)}  ${f.chgPct >= 0 ? "+" : ""}${f.chgPct.toFixed(1)}%`,
+        );
+    }
+
+    // Cross-ref: does foreign confirm today's top bandar inflows?
+    const ffMap = new Map(flows.map((f) => [f.symbol, f]));
+    console.log("\nBandar top-10 vs foreign:");
+    for (const s of top10) {
+        const f = ffMap.get(s.symbol);
+        const fv = f ? f.foreignNetValue / 1e9 : 0;
+        const verdict = !f || Math.abs(fv) < 1 ? "neutral" : fv > 0 ? "CONFLUENCE" : "DIVERGENT (foreign selling)";
+        console.log(
+            `  ${s.symbol.padEnd(6)} bandar ${("+" + (s.delta / 1e9).toFixed(1) + "B").padStart(8)} | foreign ${((fv >= 0 ? "+" : "") + fv.toFixed(1) + "B").padStart(8)}  ${verdict}`,
+        );
+    }
+} else {
+    console.log("\n  warn: IDX foreign flow unavailable (blocked or no recent data)");
+}
+
+// ─── TOP FLOW CANDLES ───────────────────────────────────────────────────────
 
 console.log("\n" + "━".repeat(70));
 console.log(`  CANDLES FOR TOP ${top10.length} DAILY INFLOWS`);
@@ -146,5 +184,5 @@ for (const stock of top10) {
 }
 
 console.log("\n" + "━".repeat(70));
-console.log("  DONE — Apply the Analysis Checklist + regime table from CLAUDE.md");
+console.log("  DONE. Apply the Analysis Checklist + regime table from CLAUDE.md");
 console.log("━".repeat(70));

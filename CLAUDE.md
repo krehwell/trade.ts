@@ -10,7 +10,7 @@ Trading assistant for IDX stocks. Analyze, build tools, give actionable edge.
 # Daily Workflow
 
 1. Check token (`deno task refresh` if expired), check time (close 15:50 WIB, bandar final ~18:00), validate yesterday's picks
-2. `deno task daily` — regime, breadth, top inflows. Shaky regime → also `deno task trap` before entries
+2. `deno task daily`: regime, breadth, top inflows. Shaky regime → also `deno task trap` before entries
 3. Scan: top 50 by bandar, compute daily deltas, rank by flow
 4. Candles for top flow, check price action, flag traps (checklist below)
 5. Recommend with TP/stop from the regime table. Never skip the regime gate
@@ -35,7 +35,7 @@ Breadth: <22% hostile, >30% healthy.
 - TP = +1.7%. Bounces top out ~+2% then fade; target under the ceiling. Not "resistance", not +5%.
 - Stop = -2%. Cut fast.
 - Gap >1% = no entry. Gap >2% = sell into it, the gap IS the move.
-- Wait 60min after open — for entries AND final OUT calls (first-hour whipsaw fakes MA5 breaks both ways). IHSG red >1% at 9:30 = no entries.
+- Wait 60min after open, for entries AND final OUT calls (first-hour whipsaw fakes MA5 breaks both ways). IHSG red >1% at 9:30 = no entries.
 - Half size.
 - Upgrade: breadth >30% → DEFENSIVE TPs. IHSG reclaims MA20 + MA10 flattening → NORMAL TPs.
 
@@ -58,7 +58,7 @@ Before any entry/TP/stop: "am I using the regime table?" TP above the table = wr
 ### Output format (every recommendation)
 
 ```
-=== [SYMBOL] — [BULLISH/NEUTRAL/BEARISH] ===
+=== [SYMBOL] | [BULLISH/NEUTRAL/BEARISH] ===
 Close: [price] | Chg: [%] | Vol: [x]M
 
 ✓ SM Flow: +[X]B daily delta (aligned/divergent)
@@ -76,7 +76,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 1. Regime #1, beats all stock signals. Backtest: with regime +88.81% (PF 1.54, 51% win), without -92.65%.
 2. Scan all stocks, not just the old watchlist.
 3. Gap up in SIT_OUT = exit signal.
-4. Big flow ≠ price. Flow can be exit liquidity — never buy flow against a crashing price.
+4. Big flow ≠ price. Flow can be exit liquidity, never buy flow against a crashing price.
 5. Structure > flow. Clean structure + flow beats flow alone.
 6. Don't penalize momentum. Vol + bandar confirm → runners keep running.
 7. "Safe" picks average +0%. Prefer conviction.
@@ -97,6 +97,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - Test before declaring done
 - No sycophancy, no closing fluff
 - Simple + direct. User instructions override this file
+- No em-dashes in docs or comments. Use colon, comma, or period
 
 # Code Conventions
 
@@ -114,23 +115,28 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 
 ### Screener
 - Results only include `sequence` columns, not filter columns. `fetchScreener` auto-sequences filter IDs; `picker.ts` has `fetchScreenerWithColumns` for explicit columns
-- BANDAR_VALUE is cumulative. Daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`; add BANDAR_PREV_VALUE as dummy filter to get it returned. Always compute the delta — big cumulative can be net selling today
+- BANDAR_VALUE is cumulative. Daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`; add BANDAR_PREV_VALUE as dummy filter to get it returned. Always compute the delta, big cumulative can be net selling today
 - `name` must be non-empty (`"screen"`). No date param, always current
 
 ### Broker activity
-- `/order-trade/broker/activity` takes arbitrary `from`/`to` — loop per day, sum SM set = accumulation timeline (`bandar` does this). Screener can't
+- `/order-trade/broker/activity` takes arbitrary `from`/`to`: loop per day, sum SM set = accumulation timeline (`bandar` does this). Screener can't
 - Max 200 buy + 200 sell rows per call. Thin stocks drop out on quiet days
 - Rate-limited: >~40 parallel calls → empty payloads → silent zeros. `fetchBrokerActivity` is sequential + 150ms. Don't parallelize
-- Invalid broker code → `"Kode broker salah"`, warned as {}. Validate against `fetchTopBrokers`. Canonical sets: `SM_BROKERS` (MS, CG deregistered — don't re-add) + `RETAIL_BROKERS`
-- `group` = ownership, not clientele. YP (biggest retail) is FOREIGN — use `RETAIL_BROKERS`, never filter LOCAL for retail
+- Invalid broker code → `"Kode broker salah"`, warned as {}. Validate against `fetchTopBrokers`. Canonical sets: `SM_BROKERS` (MS, CG deregistered, don't re-add) + `RETAIL_BROKERS`
+- `group` = ownership, not clientele. YP (biggest retail) is FOREIGN. Use `RETAIL_BROKERS`, never filter LOCAL for retail
 - Today = 0 until ~18:00 WIB finalization. Zero during market hours = not final, not "no flow"
 
 ### Live orderbook (Growin)
 - Stockbit orderbook/running-trade = 402 paywalled. Depth via Growin protobuf WS `wss://api.growin.id/marketws/ws`, decoded in `data/growinDepth.ts` (schema in `growin-live-orderbook` memory)
-- Auth automatic: `getGrowinCookie()` logs in with `.env` creds. Single-session per device — bot login kicks the account out elsewhere
+- Auth automatic: `getGrowinCookie()` logs in with `.env` creds. Single-session per device, bot login kicks the account out elsewhere
 - Gotchas baked into `growinDepth.ts`: manual HTTP/1.1 WS handshake (`alpnProtocols:["http/1.1"]`), full browser headers (Akamai), inside market read off the ladder (payload best bid/ask unreliable)
 - REST `/marketdata/api/v1/orderbook/{SYM}` = metadata only, no depth. Useful: `is_uma`, `is_suspended`, `corporate_action` (`XD` = ex-div), `limit_high`/`limit_low` (ARA/ARB)
 - No historical orderbook. All snapshot/replay/by-date guesses 404, `?date=` ignored. Want a record → record it yourself
+
+### Foreign flow (IDX)
+- `idx.co.id/primary/TradingSummary/GetStockSummary?date=YYYYMMDD`: token-free, per-stock ForeignBuy/Sell (shares). Net value approximated × close
+- Needs browser headers AND Deno fetch. curl gets Cloudflare-blocked (TLS fingerprint). Datacenter IPs (VPS) are blocked entirely
+- EOD data: today empty until after close. Foreign ≠ bandar, different lens (foreign institutional vs domestic operators), use for confluence not 1:1
 
 ### Candles
 - Chartbit intraday near-real-time; serves closed buckets only, last candle at most one bucket behind. `minutes_multiplier: 1` when freshness matters
@@ -145,8 +151,8 @@ Token in `net/stockbitAuth.ts` = exodus data token (RS256, ~24h). Both constants
 
 - `POST https://exodus.stockbit.com/login/refresh`, header = refresh token, empty body → new access + refresh pair
 - Refresh token ~7d, browser source: localStorage `credentialStorage` → `state.refresh.token`
-- **Single-use, rotates the session.** New refresh token must be persisted or next call = UNAUTHORIZED. Bot and browser can't share a login — whoever refreshes kicks the other. Bot gets its own account
-- Code: `net/refreshToken.ts`, `refresh.ts` (`deno task refresh`). `stockbitFetch.ts` auto-refreshes once on 401 (deduped), persists if perms allow. Don't run two tools on an expired token — double-refresh invalidates both
+- **Single-use, rotates the session.** New refresh token must be persisted or next call = UNAUTHORIZED. Bot and browser can't share a login, whoever refreshes kicks the other. Bot gets its own account
+- Code: `net/refreshToken.ts`, `refresh.ts` (`deno task refresh`). `stockbitFetch.ts` auto-refreshes once on 401 (deduped), persists if perms allow. Don't run two tools on an expired token, double-refresh invalidates both
 - Dead end, don't retry: `api-sekuritas.stockbit.com/partner/eipo/access_token` (EIPO-scoped, can't refresh exodus)
 
 # Project Structure
@@ -154,37 +160,38 @@ Token in `net/stockbitAuth.ts` = exodus data token (RS256, ~24h). Both constants
 Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 
 ## Entry points
-- `daily.ts` (`deno task daily`) — run first. Regime via shared `detectRegime`, IHSG technicals + last-10 candles, screener scan with deltas, candles for top-10 inflows
-- `picker.ts` (`deno task pick`) — gated pipeline: regime → bandar screener → SM/retail flow → scoring → grades. **Exits on SIT_OUT.** Detail view top 10/7/3 by regime
-- `analyzeStock.ts` (`deno task analyze <symbol>`) — per-stock TA as JSON: MA distances, vol ratios, structure, red flags
-- `bandarHistory.ts` (`deno task bandar <symbol> [days=20]`) — day-by-day SM flow vs price, ~1min/20d
-- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`) — one day, top/bottom n by SM flow. Empty until ~18:00 WIB
-- `orderbook.ts` (`deno task orderbook <symbol>`) — live ladder: 10 levels, inside market, imbalance. Market hours only
-- `trapCheck.ts` (`deno task trap`) — premarket trap probability 0-100 (shared regime + top inflows stretched above MA5 on fading vol). <55 ENTER, 55-79 WAIT (small, late, +2% cap), ≥80 SKIP
-- `refresh.ts` (`deno task refresh`) — renew token pair, rewrite `stockbitAuth.ts`
+- `daily.ts` (`deno task daily`): run first. Regime via shared `detectRegime`, IHSG technicals + last-10 candles, screener scan with deltas, IDX foreign flow + bandar-vs-foreign cross-ref, candles for top-10 inflows
+- `picker.ts` (`deno task pick`): gated pipeline: regime → bandar screener → SM/retail flow → scoring → grades. **Exits on SIT_OUT.** Detail view top 10/7/3 by regime
+- `analyzeStock.ts` (`deno task analyze <symbol>`): per-stock TA as JSON: MA distances, vol ratios, structure, red flags
+- `bandarHistory.ts` (`deno task bandar <symbol> [days=20]`): day-by-day SM flow vs price, ~1min/20d
+- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`): one day, top/bottom n by SM flow. Empty until ~18:00 WIB
+- `orderbook.ts` (`deno task orderbook <symbol>`): live ladder: 10 levels, inside market, imbalance. Market hours only
+- `trapCheck.ts` (`deno task trap`): premarket trap probability 0-100 (shared regime + top inflows stretched above MA5 on fading vol). <55 ENTER, 55-79 WAIT (small, late, +2% cap), ≥80 SKIP
+- `refresh.ts` (`deno task refresh`): renew token pair, rewrite `stockbitAuth.ts`
 
 ## market
-- `marketRegime.ts` — `detectRegime()`: IHSG trend score + breadth + trap filters → regime. Bands: ≥5 AGGRESSIVE, ≥1 NORMAL, ≥-3 DEFENSIVE, else SIT_OUT
-- `indicators.ts` — `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume`. Self-check: `deno run market/indicators.ts`
+- `marketRegime.ts`: `detectRegime()`, IHSG trend score + breadth + trap filters → regime. Bands: ≥5 AGGRESSIVE, ≥1 NORMAL, ≥-3 DEFENSIVE, else SIT_OUT
+- `indicators.ts`: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume`. Self-check: `deno run market/indicators.ts`
 
 ## data
-- `stockbitCandles.ts` — candle source of record: `fetchCandles`, `fetchDaily`, `fetchDailyMulti`. Chartbit first, Yahoo fallback, shapes match `yahooCandles`
-- `yahooCandles.ts` — fallback only
-- `fetchScreener.ts` — `fetchScreener` (paged), `fetchScreenerAll`
-- `fetchBrokerActivity.ts` — `fetchBrokerActivity`, `fetchBrokerActivityMultiTF`, `fetchTopBrokers`, owns `SM_BROKERS` + `RETAIL_BROKERS`
-- `screenerItems.ts` — screener item ID enum
-- `growinDepth.ts` — `fetchDepthSnapshot({symbol})`: one depth frame over protobuf WS, then close
+- `stockbitCandles.ts`: candle source of record: `fetchCandles`, `fetchDaily`, `fetchDailyMulti`. Chartbit first, Yahoo fallback, shapes match `yahooCandles`
+- `yahooCandles.ts`: fallback only
+- `fetchScreener.ts`: `fetchScreener` (paged), `fetchScreenerAll`
+- `fetchBrokerActivity.ts`: `fetchBrokerActivity`, `fetchBrokerActivityMultiTF`, `fetchTopBrokers`, owns `SM_BROKERS` + `RETAIL_BROKERS`
+- `screenerItems.ts`: screener item ID enum
+- `fetchForeignFlow.ts`: IDX foreign flow per stock: `fetchForeignFlow({date})`, `fetchLatestForeignFlow()` (walks back to last trading day). Used by `daily.ts` for the bandar-vs-foreign cross-ref
+- `growinDepth.ts`: `fetchDepthSnapshot({symbol})`, one depth frame over protobuf WS, then close
 
 ## net
-- `stockbitFetch.ts` — `fetchGET`/`fetchPOST`, auth baked in, auto-refresh on 401
-- `warpClient.ts` — shared HTTP client, SOCKS line commented locally, uncomment on VPS
-- `refreshToken.ts` — `refreshAccessToken`, `persistTokens`
-- `stockbitAuth.ts` — `TOKEN` (~24h), `REFRESH_TOKEN` (~7d)
-- `growinAuth.ts` — `getGrowinCookie()`, only used by `growinDepth.ts`
+- `stockbitFetch.ts`: `fetchGET`/`fetchPOST`, auth baked in, auto-refresh on 401
+- `warpClient.ts`: shared HTTP client, SOCKS line commented locally, uncomment on VPS
+- `refreshToken.ts`: `refreshAccessToken`, `persistTokens`
+- `stockbitAuth.ts`: `TOKEN` (~24h), `REFRESH_TOKEN` (~7d)
+- `growinAuth.ts`: `getGrowinCookie()`, only used by `growinDepth.ts`
 
 ## util
-- `date.ts` — `fmt`, `today`, `daysAgo`, `subDays`, `parseTFDays`
-- `print.ts` — terminal formatting
+- `date.ts`: `fmt`, `today`, `daysAgo`, `subDays`, `parseTFDays`
+- `print.ts`: terminal formatting
 
 # Scoring (picker.ts)
 
