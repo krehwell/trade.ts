@@ -121,7 +121,8 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - `/order-trade/broker/activity` takes arbitrary `from`/`to` — loop per day, sum SM set = accumulation timeline (`bandar` does this). Screener can't
 - Max 200 buy + 200 sell rows per call. Thin stocks drop out on quiet days
 - Rate-limited: >~40 parallel calls → empty payloads → silent zeros. `fetchBrokerActivity` is sequential + 150ms. Don't parallelize
-- Invalid broker code → `"Kode broker salah"`, warned as {}. Validate against `fetchTopBrokers`. Canonical set: `SM_BROKERS` (MS, CG deregistered — don't re-add)
+- Invalid broker code → `"Kode broker salah"`, warned as {}. Validate against `fetchTopBrokers`. Canonical sets: `SM_BROKERS` (MS, CG deregistered — don't re-add) + `RETAIL_BROKERS`
+- `group` = ownership, not clientele. YP (biggest retail) is FOREIGN — use `RETAIL_BROKERS`, never filter LOCAL for retail
 - Today = 0 until ~18:00 WIB finalization. Zero during market hours = not final, not "no flow"
 
 ### Live orderbook (Growin)
@@ -170,7 +171,7 @@ Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 - `stockbitCandles.ts` — candle source of record: `fetchCandles`, `fetchDaily`, `fetchDailyMulti`. Chartbit first, Yahoo fallback, shapes match `yahooCandles`
 - `yahooCandles.ts` — fallback only
 - `fetchScreener.ts` — `fetchScreener` (paged), `fetchScreenerAll`
-- `fetchBrokerActivity.ts` — `fetchBrokerActivity`, `fetchBrokerActivityMultiTF`, `fetchTopBrokers`, owns `SM_BROKERS`
+- `fetchBrokerActivity.ts` — `fetchBrokerActivity`, `fetchBrokerActivityMultiTF`, `fetchTopBrokers`, owns `SM_BROKERS` + `RETAIL_BROKERS`
 - `screenerItems.ts` — screener item ID enum
 - `growinDepth.ts` — `fetchDepthSnapshot({symbol})`: one depth frame over protobuf WS, then close
 

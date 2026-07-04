@@ -20,6 +20,10 @@ export type StockFlow = Record<string, number>;
 // MS (Morgan Stanley) + CG (Citigroup) removed Jul 2026: deregistered from IDX.
 export const SM_BROKERS = ["BK", "CS", "GW", "KZ", "RX", "DP", "AK", "ZP", "LG", "TP", "KI", "HP"];
 
+// Retail set (app-based clientele). Don't filter by group, group = ownership
+// not clientele: YP (biggest retail) is FOREIGN.
+export const RETAIL_BROKERS = ["YP", "PD", "XC", "XL", "NI", "SQ", "KK", "EP", "AG", "GR"];
+
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const fetchBrokerActivitySingle = async ({

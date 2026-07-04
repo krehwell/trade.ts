@@ -10,7 +10,7 @@
  */
 
 import { fetchScreener, type ScreenerStock } from "./data/fetchScreener.ts";
-import { fetchBrokerActivity, fetchBrokerActivityMultiTF, fetchTopBrokers, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
+import { fetchBrokerActivity, fetchBrokerActivityMultiTF, RETAIL_BROKERS, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDailyMulti as fetchYahooDailyMulti } from "./data/stockbitCandles.ts";
 import { type YahooCandle } from "./data/yahooCandles.ts";
 import { fetchPOST } from "./net/stockbitFetch.ts";
@@ -140,14 +140,9 @@ async function main() {
         timeframes: ["1d", "1w"],
     });
 
-    // Retail (local broker) flow.  Spots retail selling into smart money buying.
-    const allBrokers = await fetchTopBrokers();
-    const retailCodes = allBrokers
-        .filter((b) => b.group === "BROKER_GROUP_LOCAL")
-        .map((b) => b.code)
-        .slice(0, 10);
+    // Retail flow.  Spots retail selling into smart money buying.
     const retailFlow1w = await fetchBrokerActivity({
-        brokers: retailCodes,
+        brokers: RETAIL_BROKERS,
         from: daysAgo(7),
         to: today(),
     });
