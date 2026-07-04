@@ -61,8 +61,14 @@ if (flowsB.length >= 7) {
 
     const accum = cum7 > 0 && (green7 >= 5 || ratio >= 3) && green3 >= 2;
     const distrib = cum7 < 0 && (green7 <= 2 || ratio <= 1 / 3);
+    // 7d window can cut a big buy day just outside it. Full-period cum positive
+    // + fresh 3d green streak = re-accumulation after event, not noise.
+    const cumAll = flowsB.reduce((a, b) => a + b, 0);
+    const cutDay = Math.max(...flowsB.slice(0, -7), 0);
+    const reaccum = !spike && !accum && cumAll > 0 && cutDay > 0.5 * cumAll && green3 === 3;
     const verdict = spike ? "EVENT BUY (one day > 50% of 7d buying. Conditional entry only)"
         : accum ? "ACCUMULATION"
+        : reaccum ? `RE-ACCUMULATION (big buy +${cutDay.toFixed(1)}B outside 7d window, 3d green streak at lower prices)`
         : distrib ? "DISTRIBUTION"
         : "NOISE (no consistent flow)";
 
