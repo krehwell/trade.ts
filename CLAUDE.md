@@ -53,6 +53,12 @@ Before any entry/TP/stop: "am I using the regime table?" TP above the table = wr
 
 **Flow**: delta positive and accelerating = strong. Decelerating = fading. Big cumulative but negative delta = distribution, avoid. In picker but NOT in top 50 daily inflows → fetch numbers; cum <50B + delta <0.1B = reject. Picker grade alone doesn't prove bandar presence.
 
+**Accumulation framework (mandatory before any conviction pick)**: run `deno task bandar <sym> 10`, it prints the verdict. Consistency beats size:
+- 3d: streak and momentum. ≥2 of 3 green, flow not decaying
+- 7d: established accumulation. Cum positive AND (≥5 of 7 green OR buy/sell magnitude ratio ≥3x). Ratio catches clean accumulation with small noise reds
+- 10-20d: context. Prior big distribution (rebuy after capitulation ≠ clean accumulation)? Price phase: flat = stealth (best), already up >5% = markup (tradeable, worse R:R), down = catching knife
+- Spike test: last day > 50% of total cum = EVENT BUY, not accumulation. Conditional entry only (day-2 SM confirmation or a held retest), never a market-order pick
+
 **Reject on**: ran hard + vol declining · close near low after run · gap up closed red · <1B daily value (can't exit) · multi-week high no pullback · big inflow + price crashed.
 
 ### Output format (every recommendation)
@@ -88,6 +94,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 13. TP hit = no further commentary. Trade closed.
 14. Picker pick not in top 50 inflows → fetch bandar numbers before recommending.
 15. One regime detector: `daily`, `picker`, `trap` all use `detectRegime()`. Never re-derive.
+16. One-day flow spike ≠ accumulation. Never label a single big SM/foreign day "accumulation" without the 10d timeline (see Flow consistency). A one-day event buy is a conditional setup, downgrade the conviction and say so.
 
 # Approach
 

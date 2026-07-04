@@ -23,10 +23,12 @@ console.log(`\n=== ${symbol} SM net flow per day (${recent.length}d, brokers: ${
 console.log("date        close    chg%      flow      cum");
 
 let cum = 0;
+const flowsB: number[] = [];
 for (let i = 0; i < recent.length; i++) {
     const c = recent[i];
     const flow = (await fetchBrokerActivity({ brokers: SM_BROKERS, from: c.date, to: c.date }))[symbol] ?? 0;
     cum += flow;
+    flowsB.push(flow / 1e9);
     const prev = i > 0 ? recent[i - 1].close : candles[candles.length - days - 1]?.close;
     const chg = prev ? ((c.close - prev) / prev) * 100 : 0;
     const fB = flow / 1e9;
@@ -39,4 +41,32 @@ for (let i = 0; i < recent.length; i++) {
 }
 
 console.log(`\nCum ${recent.length}d SM flow: ${(cum / 1e9).toFixed(1)}B`);
+
+// Accumulation framework: consistency over spikes. Needs >= 7 days of data.
+if (flowsB.length >= 7) {
+    const last3 = flowsB.slice(-3);
+    const last7 = flowsB.slice(-7);
+    const green3 = last3.filter((f) => f > 0).length;
+    const green7 = last7.filter((f) => f > 0).length;
+    const cum7 = last7.reduce((a, b) => a + b, 0);
+    const pos7 = last7.filter((f) => f > 0).reduce((a, b) => a + b, 0);
+    const neg7 = Math.abs(last7.filter((f) => f < 0).reduce((a, b) => a + b, 0));
+    const ratio = neg7 > 0 ? pos7 / neg7 : Infinity;
+    // One day carrying most of the buying = event, no matter how many small green days surround it.
+    const lastDay = flowsB[flowsB.length - 1];
+    const spike = lastDay > 0 && pos7 > 0 && lastDay > 0.5 * pos7;
+
+    const chgPeriod = ((recent[recent.length - 1].close - recent[0].close) / recent[0].close) * 100;
+    const phase = Math.abs(chgPeriod) < 5 ? "flat (stealth)" : chgPeriod >= 5 ? `markup (+${chgPeriod.toFixed(0)}% in period)` : `decline (${chgPeriod.toFixed(0)}% in period)`;
+
+    const accum = cum7 > 0 && (green7 >= 5 || ratio >= 3) && green3 >= 2;
+    const distrib = cum7 < 0 && (green7 <= 2 || ratio <= 1 / 3);
+    const verdict = spike ? "EVENT BUY (one day > 50% of 7d buying. Conditional entry only)"
+        : accum ? "ACCUMULATION"
+        : distrib ? "DISTRIBUTION"
+        : "NOISE (no consistent flow)";
+
+    console.log(`\nChecks: 3d ${green3}/3 green | 7d ${green7}/7 green, cum ${(cum7 >= 0 ? "+" : "") + cum7.toFixed(1)}B, buy/sell ratio ${ratio === Infinity ? "inf" : ratio.toFixed(1)}x | price ${phase}`);
+    console.log(`VERDICT: ${verdict}`);
+}
 console.log("Note: per-broker top-200 rows only, so thin stocks can drop out of a broker's list on quiet days.");
