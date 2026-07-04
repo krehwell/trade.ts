@@ -146,5 +146,5 @@ for (const stock of top10) {
 }
 
 console.log("\n" + "━".repeat(70));
-console.log("  DONE — Analyze above data and apply Phase 4-5 from MEMORY.md");
+console.log("  DONE — Apply the Analysis Checklist + regime table from CLAUDE.md");
 console.log("━".repeat(70));

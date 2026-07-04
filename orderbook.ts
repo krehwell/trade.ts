@@ -48,7 +48,7 @@ console.log(
 );
 console.log(
   `Depth: bid ${k(bidVol)} vs ask ${k(askVol)} lots  →  imbalance ${
-    imb > "0" ? "+" : ""
+    Number(imb) > 0 ? "+" : ""
   }${imb}% ${
     Number(imb) > 20 ? "(bid-heavy)" : Number(imb) < -20 ? "(ask-heavy)" : ""
   }`,

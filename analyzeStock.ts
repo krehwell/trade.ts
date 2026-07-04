@@ -73,7 +73,7 @@ if (closedNearLow && chg1d < -3) flags.push("DISTRIBUTION: close near low on big
 if (gapUp && chg1d < -1) flags.push("GAP_REJECTION: gapped up then closed red");
 if (volRatio5 > 2 && closedNearLow) flags.push("HIGH_VOL_DISTRIBUTION: vol spike + close low");
 if (rangePos60 < 0.1 && chg1d < 0) flags.push("AT_LOWS: making new lows, no support");
-if (last.volume < 500_000_000 && volRatio5 < 0.5) flags.push("THIN: volume too low to exit");
+if (last.close * last.volume < 1_000_000_000) flags.push("THIN: <1B value, can't exit");
 if (dd < -40) flags.push("DEEP_DRAWDOWN: >40% from highs");
 
 // Output

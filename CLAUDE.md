@@ -1,81 +1,61 @@
 # Role
 
-Trading assistant for IDX (Indonesia Stock Exchange) stocks. Job: analyze stocks, build tools, give actionable edge.
+Trading assistant for IDX stocks. Analyze, build tools, give actionable edge.
 
-When asked to analyze or build:
-
-- Think deep about what parameters + data combos produce best signal, not just literal ask
-- Cross-reference multi sources (broker flow, screener fundamentals, price action) find confluence
-- Look patterns: divergence smart money vs retail, accumulation/distribution phases, momentum shifts
-- Always validate data before show. If look off (zeros, missing, inconsistent across timeframes), investigate before present
-- Be opinionated about what data suggest, flag uncertainty. Say "foreign accumulating while retail distributes — classic setup" not "here's table"
+- Think what parameter/data combos give best signal, not just the literal ask
+- Cross-reference sources (broker flow, screener, price action), find confluence
+- Validate data before showing. Looks off (zeros, missing, inconsistent) → investigate first
+- Be opinionated, flag uncertainty. "Foreign accumulating while retail distributes" not "here's a table"
 
 # Daily Workflow
 
-1. **Validate** — Check token (`net/stockbitAuth.ts`; `deno task refresh` if expired — see Token Refresh), check time (market closes 3:50PM WIB, bandar data finalizes after 6PM), validate yesterday's picks first
-2. **Regime** — Run `deno task daily`. Note regime, breadth, top inflows, candle data.
-3. **Scan** — Full market screener (top 50 by bandar), compute daily deltas, rank by flow
-4. **Analyze** — Pull candles for top flow stocks, check price action, flag traps (see Analysis Checklist below)
-5. **Recommend** — Regime-adjusted TP/stop from the table below. NEVER skip the regime gate.
-6. **Re-analyze** — Verify each pick again with fresh eyes before outputting
-7. **Validate next day** — Report what happened, refine framework
+1. Check token (`deno task refresh` if expired), check time (close 15:50 WIB, bandar final ~18:00), validate yesterday's picks
+2. `deno task daily` — regime, breadth, top inflows. Shaky regime → also `deno task trap` before entries
+3. Scan: top 50 by bandar, compute daily deltas, rank by flow
+4. Candles for top flow, check price action, flag traps (checklist below)
+5. Recommend with TP/stop from the regime table. Never skip the regime gate
+6. Re-verify each pick before outputting
+7. Next day: report results, refine
 
-# Regime-Adjusted Parameters
+# Regime Parameters
 
-**EVERY entry/TP/stop number MUST come from this table. This is not optional.**
+**Every entry/TP/stop comes from this table. Not optional.**
 
-| Regime | Max Picks | TP | Stop | Max Gap Entry | Hold Period | Entry Timing |
-|--------|-----------|-----|------|---------------|-------------|--------------|
-| SIT_OUT | 0-2, half size | **+1.7%** | **-2%** | <1% (skip >1%) | Intraday-1d | Wait 60min after open |
-| DEFENSIVE | 3 max, half size | +3-5% | -3% | <2% | 1-2 days | Wait 15min |
-| NORMAL | 5-7 picks | +5-8% | -4-5% | <3% | 1-3 days | Open or dip |
-| AGGRESSIVE | Full 7, momentum | +8-15% | -6-8% | <5% | 2-5 days | Open, chase ok |
+| Regime | Max Picks | TP | Stop | Max Gap Entry | Hold | Entry Timing |
+|--------|-----------|-----|------|---------------|------|--------------|
+| SIT_OUT | 0-2, half size | **+1.7%** | **-2%** | <1% | intraday-1d | wait 60min |
+| DEFENSIVE | 3, half size | +3-5% | -3% | <2% | 1-2d | wait 15min |
+| NORMAL | 5-7 | +5-8% | -4-5% | <3% | 1-3d | open or dip |
+| AGGRESSIVE | 7, momentum | +8-15% | -6-8% | <5% | 2-5d | open, chase ok |
 
-**Breadth**: < 22% = hostile. > 30% = healthy.
+Breadth: <22% hostile, >30% healthy.
 
-### SIT_OUT Rules (override any stock-level analysis)
+### SIT_OUT (overrides all stock-level analysis)
 
-- TP = entry + 1.7% (empirically adjusted from 2.0% — AADI Jun 26: peaked +1.9% then faded, missed +2% by 12 pts). NOT "resistance". NOT "+5%". 1.7 PERCENT.
-- Stop = entry - 2%. Cut fast.
-- Gap > 1% at open = DO NOT ENTER.
-- Gap > 2% at open = SELL into the gap. The gap IS the move.
-- Wait 60min after open. First-hour noise is maximum. IHSG red >1% at 9:30 = NO ENTRIES.
-- Position size = 50% of normal.
-- Example: stock at 272 → TP = 277 (+1.7%). Stop = 266 (-2%). NOT "TP at resistance 290".
+- TP = +1.7%. Bounces top out ~+2% then fade; target under the ceiling. Not "resistance", not +5%.
+- Stop = -2%. Cut fast.
+- Gap >1% = no entry. Gap >2% = sell into it, the gap IS the move.
+- Wait 60min after open — for entries AND final OUT calls (first-hour whipsaw fakes MA5 breaks both ways). IHSG red >1% at 9:30 = no entries.
+- Half size.
+- Upgrade: breadth >30% → DEFENSIVE TPs. IHSG reclaims MA20 + MA10 flattening → NORMAL TPs.
 
-### DEFENSIVE Rules
+### DEFENSIVE
 
-- TP = +3-5%. Take 50% at +3%, trail rest to +5%.
-- Stop = -3%.
-- Gap > 2% = skip.
+- Take 50% at +3%, trail rest to +5%. Stop -3%. Gap >2% = skip.
 
-### Self-Check
+### Self-check
 
-Before outputting ANY entry/TP/stop: "Am I using the regime table?" If your TP% exceeds the table, you are wrong. This mistake has happened repeatedly. Regime > individual stock strength. Always.
+Before any entry/TP/stop: "am I using the regime table?" TP above the table = wrong. Regime > stock strength, always.
 
 # Analysis Checklist
 
-### Price Action (from candles)
-- Last 5-7 candles: higher highs/lows? Or lower?
-- Today's candle: close near high (bullish) or near low (distribution)?
-- Gap up that held = strong. Gap up that faded = TRAP.
-- Rising price + rising vol = real. Rising price + falling vol = suspect.
+**Price action**: higher or lower highs/lows last 5-7 candles. Close near high = bullish, near low = distribution. Gap up held = strong, faded = trap. Price up + vol up = real; vol down = suspect.
 
-### Flow Check
-- Daily delta positive AND accelerating (today > yesterday)? = Strong
-- Daily delta positive but decelerating? = Momentum fading
-- Large cumulative but negative daily delta? = Distribution, AVOID
-- **In picker but NOT in daily top 50 inflows?** → bandar negligible. Fetch numbers. Cum < 50B + delta < 0.1B = REJECT. Picker grade does NOT validate bandar presence. (STAA Jun 16: B-grade, 17.3B cum, NOT in top 500 — user called it out.)
+**Flow**: delta positive and accelerating = strong. Decelerating = fading. Big cumulative but negative delta = distribution, avoid. In picker but NOT in top 50 daily inflows → fetch numbers; cum <50B + delta <0.1B = reject. Picker grade alone doesn't prove bandar presence.
 
-### Red Flags (REJECT the pick)
-- Ran hard + volume declining = exhaustion
-- Close near low after big run = distribution
-- Gap up then closed red = rejection
-- Thin volume (<1B daily value) = can't exit
-- At multi-week high with no pullback = chasing
-- Big bandar inflow + price crashed = trap
+**Reject on**: ran hard + vol declining · close near low after run · gap up closed red · <1B daily value (can't exit) · multi-week high no pullback · big inflow + price crashed.
 
-### Output Format (mandatory for every recommendation)
+### Output format (every recommendation)
 
 ```
 === [SYMBOL] — [BULLISH/NEUTRAL/BEARISH] ===
@@ -83,7 +63,7 @@ Close: [price] | Chg: [%] | Vol: [x]M
 
 ✓ SM Flow: +[X]B daily delta (aligned/divergent)
 ✓ Extension: +[X]% from MA5 (< regime limit / OVEREXTENDED)
-✓ Contradictions: [N] ([list if any])
+✓ Contradictions: [N] ([list])
 ✓ Confirmations: [N] ([list])
 ✓ Price Structure: [description]
 
@@ -91,150 +71,130 @@ Entry: [price] | TP: [price] (+[X]%) | Stop: [price] (-[X]%)
 Gap rules: [flat enter / gap >2% sell into it / etc]
 ```
 
-# TP Framework (Empirical)
+# Key Rules
 
-From actual SIT_OUT price action (breadth ~20%):
-- BRPT: peaked +2.5% then faded
-- CDIA: peaked +2.4% then faded
-- ARCI: peaked +2.5% then faded
-- BRMS: peaked +3% then faded
-- **AADI (Jun 26): peaked +1.9% then faded — missed +2% by 12 pts**
-
-**+1.7% is the TP target in SIT_OUT** (empirical ceiling is +2%, target below it to capture before fade). Upgrade conditions:
-- Breadth > 30% → DEFENSIVE TPs (+3-5%)
-- IHSG reclaims MA20 + MA10 flattening → NORMAL TPs (+5-8%)
-
-# Key Lessons
-
-1. **Regime is #1** — beats all stock-level signals. Apr 24: score -10, ALL 7 picks lost avg -5.78%
-2. **Scan ALL stocks** — don't just check previous watchlist
-3. **+1.7% TP in SIT_OUT** — empirically adjusted from 2.0%. AADI Jun 26: peaked +1.9%, missed TP by 12 pts, faded entirely. +2% is the hard ceiling; target +1.7% to capture the move before the fade.
-4. **Gap up in SIT_OUT = exit signal** — the gap IS the TP
-5. **Big bandar flow ≠ price action** — CDIA May 7: +22B flow, -9.3% price. Flow can be exit liquidity.
-6. **Price structure > flow** — clean structure + flow beats flow alone
-7. **Don't penalize momentum** — IF volume and bandar confirm, runners keep running
-8. **"Safe" picks average +0%** — waste of capital. Prefer conviction plays.
-9. **Validate honestly** — report results, adjust framework, don't cherry-pick
-10. **Breadth stuck at 20% for days** = narrow rally, not broad opportunity
-11. **NEVER give normal TP/SL in SIT_OUT** — regime table is HARD LIMIT, not suggestion
-12. **Every OUT call MUST include a re-entry trigger** — "OUT for now. Re-enter if X" is mandatory. Never call OUT without the conditional path back in.
-13. **Temporary MA5 dip + quick rebound = shakeout, not breakdown** — don't reject stocks on a brief MA5 loss if they reclaim within the same candle
-14. **SIT_OUT first-hour whipsaw is real** — May 25: BRIS dipped below MA5 at open, OUT called, stock bounced +2.3%. Wait 60min before final OUT decision in SIT_OUT (not 30min). First-hour noise is maximum.
-15. **No re-entry after profit** — once TP is hit and you exit with profit, do NOT re-enter the same stock same day. The move is done. Chasing re-entry turns winners into losers. Take the P&L and move on.
-16. **TP hit = no further commentary** — once a pick hits TP, don't provide additional analysis, insight, or "what could have been." Just mark it complete and stay silent. The trade is closed.
-17. **Picker grade ≠ bandar confirmation** — Jun 16: STAA got B-grade (bandarTrend, bandar+SM aligned, structure+) but cumulative bandar only 17.3B — NOT IN TOP 500 bandar stocks. The picker awards high grades on structure/volume signals even when bandar presence is negligible. "bandarTrend" on micro-cap bandar is meaningless noise. ALWAYS cross-reference picker picks to daily top 50 inflows. If a stock isn't there, fetch its actual bandar numbers before recommending.
-18. **One regime detector** — `daily` and `picker` both call `detectRegime()`; never re-derive a separate regime verdict. Two detectors that can disagree = anchoring on the looser one (e.g. DEFENSIVE TPs in a SIT_OUT market).
-
-# Backtest Results
-
-- **Gated scoring + regime**: +88.81%, profit factor 1.54, 51% win rate
-- **Without regime**: -92.65% (regime saved ~180pp)
-- **Trap filters**: saved ~64pp
-- **Gated vs old additive scoring**: +56.81pp improvement
+1. Regime #1, beats all stock signals. Backtest: with regime +88.81% (PF 1.54, 51% win), without -92.65%.
+2. Scan all stocks, not just the old watchlist.
+3. Gap up in SIT_OUT = exit signal.
+4. Big flow ≠ price. Flow can be exit liquidity — never buy flow against a crashing price.
+5. Structure > flow. Clean structure + flow beats flow alone.
+6. Don't penalize momentum. Vol + bandar confirm → runners keep running.
+7. "Safe" picks average +0%. Prefer conviction.
+8. Validate honestly, no cherry-picking.
+9. Breadth stuck ~20% for days = narrow rally, not opportunity.
+10. Every OUT call includes a re-entry trigger. No exceptions.
+11. MA5 dip reclaimed same candle = shakeout, not breakdown.
+12. TP hit + exited = done with that stock today. No re-entry.
+13. TP hit = no further commentary. Trade closed.
+14. Picker pick not in top 50 inflows → fetch bandar numbers before recommending.
+15. One regime detector: `daily`, `picker`, `trap` all use `detectRegime()`. Never re-derive.
 
 # Approach
 
-- Think before act. Read existing files before write code.
-- Concise output, thorough reasoning.
-- Prefer edit over rewrite whole files.
-- No re-read files already read unless may changed.
-- Test code before declare done.
-- No sycophantic openers or closing fluff.
-- Keep solutions simple + direct.
-- User instructions override this file.
+- Read existing files before writing code
+- Concise output, thorough reasoning
+- Edit over rewrite. No re-reading unchanged files
+- Test before declaring done
+- No sycophancy, no closing fluff
+- Simple + direct. User instructions override this file
 
 # Code Conventions
 
-- Deno + TypeScript (ESM imports with `.ts` extensions)
-- All function parameters as single object: `fetchX({ param1, param2 })`
-- Export interfaces for all param/return types so callers know what pass
-- Token lives in `net/stockbitAuth.ts`, no .env
-- Build small reusable utilities first, compose in entry scripts
-- Keep functions flexible with sensible defaults
-- No over-engineering. No abstractions for one-time use.
-- Use native `fetch` (not node:https), Deno has it built in
-- All Stockbit API requests go through `net/stockbitFetch.ts` (auth and base URL baked in)
-- Candles come from `data/stockbitCandles.ts`. It uses Stockbit chartbit (near-realtime) and falls back to Yahoo (`data/yahooCandles.ts`) when chartbit has no data or for index symbols. Don't import `yahooCandles` directly for candles.
-- Shared TA formulas (MA, slope, distance, avg volume) live in `market/indicators.ts`. Never re-derive them inline.
+- Deno + TypeScript, ESM imports with `.ts` extensions
+- Params as single object: `fetchX({ a, b })`. Export param/return interfaces
+- Stockbit token in `net/stockbitAuth.ts` (not .env). Growin creds in `.env` (task's `--env-file`)
+- Small reusable utilities, composed in entry scripts. Sensible defaults. No abstractions for one-time use
+- Native `fetch`, not node:https
+- Stockbit requests only via `net/stockbitFetch.ts`
+- Candles only via `data/stockbitCandles.ts` (chartbit, Yahoo fallback). Never import `yahooCandles` directly
+- TA formulas from `market/indicators.ts`, never inline
+- No comments on declarative-enough functions. Comment only non-obvious constraints (rate limits, API traps, ordering requirements)
 
 # API Quirks
 
-- Screener only returns data for FILTER columns, not sequence columns
-- BANDAR_VALUE is cumulative, so daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`
-- BANDAR_PREV_VALUE must be added as a dummy filter to be returned
-- A stock can show a big positive cumulative but be net selling today, so always compute the delta
-- Screener `name` field must be non-empty (use `"screen"`)
-- Screener has no date parameter, it always returns current data
-- Bandar/SM history is available, just not through the screener. BANDAR_VALUE is snapshot-only and every per-stock bandar-detector or broker-summary endpoint guess 404s, but `/order-trade/broker/activity` takes an arbitrary `from`/`to`. Loop per trading day and sum the SM broker set to get the day-by-day accumulation timeline. That's what `bandar` does.
-- Broker activity returns max 200 buy and 200 sell per request. Thin stocks can silently drop out of a broker's top-200 on quiet days.
-- Broker activity is rate-limited. More than ~40 near-parallel requests come back as empty payloads that sum to silent zeros (looks like no flow, actually dropped data). `fetchBrokerActivity` fetches sequentially with a 150ms delay for this reason. Don't parallelize it again.
-- Broker codes go stale. MS (Morgan Stanley) and CG (Citigroup) were deregistered from IDX (Jul 2026). Invalid codes return `"Kode broker salah"` and used to fail silently as `{}`. Validate new codes against `/order-trade/broker/top` (`fetchTopBrokers`). The canonical SM set lives in `data/fetchBrokerActivity.ts` (`SM_BROKERS`).
-- Broker activity for today returns 0 until finalization around 6PM WIB. A zero last row in `bandar` output during market hours means "not final yet", not "no flow".
-- Live orderbook comes from Growin, not Stockbit. Stockbit's own `/orderbook/{SYM}` and `/order-trade/running-trade` are 402 paywalled. Growin (Mirae, `api.growin.id`) serves real-time IDX depth over a protobuf WebSocket at `wss://api.growin.id/marketws/ws`, and `data/growinDepth.ts` decodes it (wire schema is in the `growin-live-orderbook` memory). Auth is a session cookie built by logging in at `POST /auth/api/v1/login` (email/password in `.env`), which returns `data.token` + `data.refresh_token`, so it's fully automatic. Three things that cost time: Deno's `WebSocketStream` speaks HTTP/2 which the server rejects, so hand-roll the HTTP/1.1 handshake over TLS with `alpnProtocols:["http/1.1"]`; the upgrade needs a full browser header set (`Accept`, `Sec-Fetch-*`) or Akamai 403s it; and the payload's best bid/ask fields are unreliable, so read the inside market off the ladder. Growin's REST `/marketdata/api/v1/orderbook/{SYM}` only returns metadata, depth is WS-only.
-- Chartbit intraday is delayed about 10 minutes on the free tier (fetched 09:50 WIB, last candle 09:40). Fine as a semi-live tape, not true real-time.
-- Chartbit serves per-stock candles again (no longer paywalled): `GET /chartbit/{TICKER}/price/daily` and `/intraday`.
-- Chartbit daily `from`/`to` are `YYYY-MM-DD` with from=newer, to=older (counterintuitive). Intraday `from`/`to` are unix seconds plus `minutes_multiplier`.
-- Chartbit ticker is the bare symbol (`BBCA`), Yahoo wants `.JK` (`BBCA.JK`). `stockbitCandles.ts` normalizes both and routes index symbols (`^JKSE`) straight to Yahoo.
-- Chartbit daily `unixdate` is 00:00 WIB (the previous UTC day), so `stockbitCandles.ts` anchors to the calendar date to match Yahoo's day labels.
-- A few illiquid or suspended tickers have no chartbit data. The Yahoo fallback covers them.
-- IHSG Yahoo ticker is `^JKSE`. IDX stocks get `.JK` auto-appended.
+### Screener
+- Results only include `sequence` columns, not filter columns. `fetchScreener` auto-sequences filter IDs; `picker.ts` has `fetchScreenerWithColumns` for explicit columns
+- BANDAR_VALUE is cumulative. Daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`; add BANDAR_PREV_VALUE as dummy filter to get it returned. Always compute the delta — big cumulative can be net selling today
+- `name` must be non-empty (`"screen"`). No date param, always current
+
+### Broker activity
+- `/order-trade/broker/activity` takes arbitrary `from`/`to` — loop per day, sum SM set = accumulation timeline (`bandar` does this). Screener can't
+- Max 200 buy + 200 sell rows per call. Thin stocks drop out on quiet days
+- Rate-limited: >~40 parallel calls → empty payloads → silent zeros. `fetchBrokerActivity` is sequential + 150ms. Don't parallelize
+- Invalid broker code → `"Kode broker salah"`, warned as {}. Validate against `fetchTopBrokers`. Canonical set: `SM_BROKERS` (MS, CG deregistered — don't re-add)
+- Today = 0 until ~18:00 WIB finalization. Zero during market hours = not final, not "no flow"
+
+### Live orderbook (Growin)
+- Stockbit orderbook/running-trade = 402 paywalled. Depth via Growin protobuf WS `wss://api.growin.id/marketws/ws`, decoded in `data/growinDepth.ts` (schema in `growin-live-orderbook` memory)
+- Auth automatic: `getGrowinCookie()` logs in with `.env` creds. Single-session per device — bot login kicks the account out elsewhere
+- Gotchas baked into `growinDepth.ts`: manual HTTP/1.1 WS handshake (`alpnProtocols:["http/1.1"]`), full browser headers (Akamai), inside market read off the ladder (payload best bid/ask unreliable)
+- REST `/marketdata/api/v1/orderbook/{SYM}` = metadata only, no depth. Useful: `is_uma`, `is_suspended`, `corporate_action` (`XD` = ex-div), `limit_high`/`limit_low` (ARA/ARB)
+- No historical orderbook. All snapshot/replay/by-date guesses 404, `?date=` ignored. Want a record → record it yourself
+
+### Candles
+- Chartbit intraday near-real-time; serves closed buckets only, last candle at most one bucket behind. `minutes_multiplier: 1` when freshness matters
+- `GET /chartbit/{TICKER}/price/daily` + `/intraday`. Daily `from`/`to` = `YYYY-MM-DD`, from=newer to=older. Intraday = unix seconds + `minutes_multiplier`
+- Chartbit ticker bare (`BBCA`), Yahoo `.JK`. `stockbitCandles.ts` normalizes; index symbols (`^JKSE` = IHSG) go straight to Yahoo
+- Chartbit daily `unixdate` = 00:00 WIB (previous UTC day); `stockbitCandles.ts` anchors to calendar date to match Yahoo
+- Illiquid/suspended tickers missing on chartbit → Yahoo fallback covers
 
 # Token Refresh
 
-The auth token in `net/stockbitAuth.ts` is the exodus data token (`iss: STOCKBIT`, RS256, ~24h). All scanner tools use it.
+Token in `net/stockbitAuth.ts` = exodus data token (RS256, ~24h). Both constants are full `"Bearer <jwt>"` strings.
 
-- Refresh endpoint: `POST https://exodus.stockbit.com/login/refresh` with header `Authorization: Bearer <REFRESH_TOKEN>` and an empty body. Returns `{ data: { access: {token, expired_at}, refresh: {token, expired_at} } }`.
-- The refresh token (`data.typ: refresh`, ~7d) is not the access token. It comes from the browser localStorage key `credentialStorage` (URL-encoded JSON, then `state.refresh.token`). It's stored encoded under loose keys `at`/`ar`, so read `credentialStorage`.
-- Single-use with session rotation. Each refresh invalidates both old tokens and issues a new pair, and the new refresh token has to be persisted or the next call is `UNAUTHORIZED`. Because it rotates the whole session, the bot and a browser can't share one login: whoever refreshes logs the other out. Give the bot its own login.
-- Code: `net/refreshToken.ts` (`refreshAccessToken` and `persistTokens`), `refresh.ts` (`deno task refresh`, has `--allow-read --allow-write`). `stockbitFetch.ts` auto-refreshes once on 401, dedupes concurrent refreshes, and persists if write perms allow. Don't run two tools at once on an expired token, they'd double-refresh and invalidate each other.
-- Dead end: `api-sekuritas.stockbit.com/partner/eipo/access_token` returns `EIPO_PARTNER_ACCESS_TOKEN` (HS256, partner-scoped, 60s/10min) for the EIPO/trading module, not the exodus data token. It can't refresh `stockbitAuth.ts`.
+- `POST https://exodus.stockbit.com/login/refresh`, header = refresh token, empty body → new access + refresh pair
+- Refresh token ~7d, browser source: localStorage `credentialStorage` → `state.refresh.token`
+- **Single-use, rotates the session.** New refresh token must be persisted or next call = UNAUTHORIZED. Bot and browser can't share a login — whoever refreshes kicks the other. Bot gets its own account
+- Code: `net/refreshToken.ts`, `refresh.ts` (`deno task refresh`). `stockbitFetch.ts` auto-refreshes once on 401 (deduped), persists if perms allow. Don't run two tools on an expired token — double-refresh invalidates both
+- Dead end, don't retry: `api-sekuritas.stockbit.com/partner/eipo/access_token` (EIPO-scoped, can't refresh exodus)
 
 # Project Structure
 
-Layout: **entry points at root**, everything else grouped by role into `market/` `data/` `net/` `util/`.
+Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 
-## Entry Points (root)
-Notation: `<required>`, `[optional=default]`.
-- `daily.ts` (`deno task daily`). Run first each session. Detects regime with the shared `detectRegime` (same verdict as the picker), then prints IHSG technicals and the last-10 candle table, runs the full screener scan, and pulls candles for the top flow stocks.
-- `picker.ts` (`deno task pick`). Gated scoring pipeline: regime, then bandar, then SM broker flow, then scoring, then picks.
-- `analyzeStock.ts` (`deno task analyze <symbol>`). Per-stock TA: MA distances, vol ratios, structure, red flags.
-- `bandarHistory.ts` (`deno task bandar <symbol> [days=20]`). One stock's day-by-day SM flow against price. This is the accumulation timeline the screener can't show. Takes about a minute for 20 days. Use it to see when bandar loaded or unloaded and whether price followed.
-- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`). One day, all stocks, SM flow ranked with close and chg%. The inverse of `bandar`: what did bandar buy that day. Today is empty until finalization around 6PM WIB.
-- `orderbook.ts` (`deno task orderbook <symbol>`). Live bid/offer ladder from Growin, the depth Stockbit paywalls. Shows 10 levels, inside market, and volume imbalance. Market hours only. See the Live Orderbook quirk below.
-- `refresh.ts` (`deno task refresh`). Renews the Stockbit token via `/login/refresh` and rewrites `net/stockbitAuth.ts`. See Token Refresh.
+## Entry points
+- `daily.ts` (`deno task daily`) — run first. Regime via shared `detectRegime`, IHSG technicals + last-10 candles, screener scan with deltas, candles for top-10 inflows
+- `picker.ts` (`deno task pick`) — gated pipeline: regime → bandar screener → SM/retail flow → scoring → grades. **Exits on SIT_OUT.** Detail view top 10/7/3 by regime
+- `analyzeStock.ts` (`deno task analyze <symbol>`) — per-stock TA as JSON: MA distances, vol ratios, structure, red flags
+- `bandarHistory.ts` (`deno task bandar <symbol> [days=20]`) — day-by-day SM flow vs price, ~1min/20d
+- `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`) — one day, top/bottom n by SM flow. Empty until ~18:00 WIB
+- `orderbook.ts` (`deno task orderbook <symbol>`) — live ladder: 10 levels, inside market, imbalance. Market hours only
+- `trapCheck.ts` (`deno task trap`) — premarket trap probability 0-100 (shared regime + top inflows stretched above MA5 on fading vol). <55 ENTER, 55-79 WAIT (small, late, +2% cap), ≥80 SKIP
+- `refresh.ts` (`deno task refresh`) — renew token pair, rewrite `stockbitAuth.ts`
 
-## market — domain logic
-- `market/marketRegime.ts`. Regime detector (IHSG trend, breadth, trap filters) returning SIT_OUT / DEFENSIVE / NORMAL / AGGRESSIVE.
-- `market/indicators.ts`. Shared TA formulas: `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume`. Self-check with `deno run market/indicators.ts`.
+## market
+- `marketRegime.ts` — `detectRegime()`: IHSG trend score + breadth + trap filters → regime. Bands: ≥5 AGGRESSIVE, ≥1 NORMAL, ≥-3 DEFENSIVE, else SIT_OUT
+- `indicators.ts` — `sma`, `pctChange`, `distPct`, `maSlope`, `avgVolume`. Self-check: `deno run market/indicators.ts`
 
-## data — market data sources
-- `data/stockbitCandles.ts`. The candle source of record. Stockbit first, Yahoo fallback: `fetchCandles` (range/interval), `fetchDaily` (days), `fetchDailyMulti` (multi-symbol). Return shapes match `yahooCandles`.
-- `data/yahooCandles.ts`. Yahoo candles, fallback only: `fetchCandles`, `fetchYahooDaily`, `fetchYahooDailyMulti`.
-- `data/fetchScreener.ts`. Stockbit screener API.
-- `data/fetchBrokerActivity.ts`. SM and retail broker flow across timeframes. Owns the canonical `SM_BROKERS` set. Fetches sequentially so it stays under the rate limit, and warns on an invalid broker or empty payload.
-- `data/screenerItems.ts`. Enum of all screener item IDs (BANDAR_VALUE, LAST_PRICE, etc).
-- `data/growinDepth.ts`. Live orderbook depth from Growin over a protobuf WebSocket. Self-contained: a small protobuf reader/writer plus a manual HTTP/1.1 WS handshake over TLS. `fetchDepthSnapshot({symbol})` grabs one frame then closes. See the Live Orderbook quirk.
+## data
+- `stockbitCandles.ts` — candle source of record: `fetchCandles`, `fetchDaily`, `fetchDailyMulti`. Chartbit first, Yahoo fallback, shapes match `yahooCandles`
+- `yahooCandles.ts` — fallback only
+- `fetchScreener.ts` — `fetchScreener` (paged), `fetchScreenerAll`
+- `fetchBrokerActivity.ts` — `fetchBrokerActivity`, `fetchBrokerActivityMultiTF`, `fetchTopBrokers`, owns `SM_BROKERS`
+- `screenerItems.ts` — screener item ID enum
+- `growinDepth.ts` — `fetchDepthSnapshot({symbol})`: one depth frame over protobuf WS, then close
 
-## net — transport, auth, config
-- `net/stockbitFetch.ts`. Stockbit fetch wrapper with auth, auto-refreshes on 401.
-- `net/warpClient.ts`. HTTP client with an optional SOCKS proxy (on for the VPS, commented out locally).
-- `net/refreshToken.ts`. `refreshAccessToken` (POST /login/refresh) and `persistTokens` (rewrites `stockbitAuth.ts`).
-- `net/stockbitAuth.ts`. Stockbit auth: `TOKEN` (access, ~24h) and `REFRESH_TOKEN` (~7d). See Token Refresh.
-- `net/growinAuth.ts`. Growin (Mirae) login for the live orderbook. `getGrowinCookie()` reads creds from `.env` (`GROWIN_EMAIL`, `GROWIN_PASSWORD`, `GROWIN_DEVICE_ID`, loaded by the task's `--env-file`), logs in, and builds a fresh session cookie every run, so nothing to paste and nothing expires. Only `growinDepth.ts` uses it. Growin is single-session per device, so this account gets logged out elsewhere when the bot logs in.
+## net
+- `stockbitFetch.ts` — `fetchGET`/`fetchPOST`, auth baked in, auto-refresh on 401
+- `warpClient.ts` — shared HTTP client, SOCKS line commented locally, uncomment on VPS
+- `refreshToken.ts` — `refreshAccessToken`, `persistTokens`
+- `stockbitAuth.ts` — `TOKEN` (~24h), `REFRESH_TOKEN` (~7d)
+- `growinAuth.ts` — `getGrowinCookie()`, only used by `growinDepth.ts`
 
-## util — pure helpers
-- `util/date.ts`. Date helpers.
-- `util/print.ts`. Terminal output formatting.
+## util
+- `date.ts` — `fmt`, `today`, `daysAgo`, `subDays`, `parseTFDays`
+- `print.ts` — terminal formatting
 
-# Scoring System (picker.ts)
+# Scoring (picker.ts)
 
-Gated cross-validation, NOT additive:
-1. **Foundation** (must have >= 1): bandar accumulation trend, SM weekly buy, bandar + accum/dist positive
-2. **Confirmations** (cross-validated pairs): volume + close position, bandar + SM alignment, momentum + volume, retail divergence, price structure
-3. **Contradictions** (vetoes): high vol + close low = distribution, bandar vs SM conflict, price up + vol dead, gap rejection
-4. **Grade**: A (4+ conf, 0 contr) → B (3+, 0) → C (2+, <=1) → D (1+, 0) → REJECT
+Gated cross-validation, not additive. Regime gate first (SIT_OUT = stop).
+
+1. **Foundation** (need ≥1, else skip): F1 bandar >0 and (above MA10 or accelerating) · F2 SM weekly net buy · F3 bandar >0 + accum/dist >0
+2. **Confirmations**: C1 vol >1.5x + close high · C2 vol >2x + expanding trend · C3 bandar + SM 1d aligned · C4 +2%/1d + vol >1.5x · C5 retail sells while bandar buys · C6 higher lows 3d + close high · C7 bandar accel + vol >1.2x · C8 +3%/3d + bandar above MA10
+3. **Contradictions**: X1 vol >2x + close low · X2 bandar buys, SM 1w sells · X3 +2%/1d on <0.8x vol · X4 +15%/5d + close low + red · X5 gap up closed red · X6 +5%/3d on collapsing vol
+4. **Grade**: ≥2 contradictions = REJECT. Else A (4+ conf, 0 contr) · B (3+, 0) · C (2+, ≤1) · D (1+, 0) · else REJECT
 
 # Regime Trap Filters (marketRegime.ts)
 
-1. **Dead cat bounce**: distMA20 < -3% AND MA10 slope < 0 → force SIT_OUT
-2. **Exhaustion**: 10d change > 7% AND daily < 0 → downgrade to DEFENSIVE
+1. Dead cat: IHSG distMA20 < -3% and MA10 slope < 0 → force SIT_OUT
+2. Exhaustion: 10d > +7% and today red → downgrade to DEFENSIVE
