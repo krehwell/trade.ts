@@ -56,7 +56,7 @@ for (const c of ihsg.slice(-10)) {
 // ─── SCREENER SCAN ──────────────────────────────────────────────────────────
 
 console.log("\n" + "━".repeat(70));
-console.log("  BANDAR FLOW SCAN (Top 50 by cumulative, ranked by daily delta)");
+console.log("  BANDAR FLOW SCAN (all positive bandar, top 50 by daily delta)");
 console.log("━".repeat(70));
 
 const filters = [
