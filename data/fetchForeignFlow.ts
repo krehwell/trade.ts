@@ -1,6 +1,7 @@
 // Foreign flow per stock from idx.co.id daily stock summary. Token-free, needs
 // browser headers or Cloudflare blocks it. ForeignBuy/Sell are shares; net value
 // approximated with close price. EOD data: today is empty until after close.
+import { warpClient } from "../net/warpClient.ts";
 import { fmt, subDays } from "../util/date.ts";
 
 export interface ForeignFlow {
@@ -37,6 +38,7 @@ export const fetchForeignFlow = async ({ date }: { date: string }): Promise<Fore
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-origin",
             },
+            client: warpClient,
         },
     );
     if (!res.ok) throw new Error(`IDX GetStockSummary ${res.status}`);
