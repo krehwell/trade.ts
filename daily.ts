@@ -6,7 +6,7 @@
  */
 
 import { fetchCandles } from "./data/stockbitCandles.ts";
-import { fetchScreener } from "./data/fetchScreener.ts";
+import { fetchScreener, fetchScreenerAll } from "./data/fetchScreener.ts";
 import { fetchLatestForeignFlow } from "./data/fetchForeignFlow.ts";
 import { ITEMS } from "./data/screenerItems.ts";
 import { distPct, maSlope, pctChange, sma } from "./market/indicators.ts";
@@ -64,10 +64,9 @@ const filters = [
     { id: ITEMS.BANDAR_PREV_VALUE, operator: "!=" as const, value: 999999999999 },
 ];
 
-// Fetch page 1 and 2
-const page1 = await fetchScreener({ filters, orderCol: ITEMS.BANDAR_VALUE, orderType: "desc", page: 1 });
-const page2 = await fetchScreener({ filters, orderCol: ITEMS.BANDAR_VALUE, orderType: "desc", page: 2 });
-const allStocks = [...page1.stocks, ...page2.stocks];
+// API ignores ordercol (returns alphabetical), so fetch every positive-bandar
+// row and rank locally. ~8 pages, still fast.
+const allStocks = await fetchScreenerAll({ filters });
 
 // Breadth: count negative bandar stocks
 const negPage = await fetchScreener({
@@ -75,10 +74,10 @@ const negPage = await fetchScreener({
     page: 1,
     perPage: 1,
 });
-const breadth = ((page1.totalRows / (page1.totalRows + negPage.totalRows)) * 100).toFixed(1);
+const breadth = ((allStocks.length / (allStocks.length + negPage.totalRows)) * 100).toFixed(1);
 
 console.log(
-    `Positive bandar: ${page1.totalRows} | Negative: ${negPage.totalRows} | Breadth: ${breadth}%\n`,
+    `Positive bandar: ${allStocks.length} | Negative: ${negPage.totalRows} | Breadth: ${breadth}%\n`,
 );
 
 // Compute daily deltas
@@ -94,7 +93,7 @@ enriched.sort((a, b) => b.delta - a.delta);
 
 console.log("Rank | Ticker | BandarCum  | BandarPrev | DailyDelta");
 console.log("-".repeat(60));
-for (let i = 0; i < enriched.length; i++) {
+for (let i = 0; i < Math.min(enriched.length, 50); i++) {
     const s = enriched[i];
     const sign = s.delta >= 0 ? "+" : "";
     console.log(

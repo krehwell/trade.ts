@@ -124,6 +124,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - Results only include `sequence` columns, not filter columns. `fetchScreener` auto-sequences filter IDs; `picker.ts` has `fetchScreenerWithColumns` for explicit columns
 - BANDAR_VALUE is cumulative. Daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`; add BANDAR_PREV_VALUE as dummy filter to get it returned. Always compute the delta, big cumulative can be net selling today
 - `name` must be non-empty (`"screen"`). No date param, always current
+- API ignores `ordercol`/`ordertype`, returns alphabetical. Fetch all pages via `fetchScreenerAll`, sort locally
 
 ### Broker activity
 - `/order-trade/broker/activity` takes arbitrary `from`/`to`: loop per day, sum SM set = accumulation timeline (`bandar` does this). Screener can't
