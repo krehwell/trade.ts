@@ -18,7 +18,8 @@ import { ITEMS } from "./data/screenerItems.ts";
 import { daysAgo, fmt, subDays, today } from "./util/date.ts";
 import { fmtNum, printHeader, printSubHeader, printTable } from "./util/print.ts";
 import { detectRegime, printRegime } from "./market/marketRegime.ts";
-import { fetchStockMeta } from "./data/growinMeta.ts";
+import { candleStats } from "./market/indicators.ts";
+import { fetchStockMeta, metaWarnings } from "./data/growinMeta.ts";
 
 // Fetch screener with specific columns in the results (via sequence param)
 const fetchScreenerWithColumns = async ({ filters, columns, orderCol, orderType = "desc" }: {
@@ -171,42 +172,14 @@ async function main() {
         if (!scrData || !yahooCandles || yahooCandles.length < 10) continue;
 
         const c = yahooCandles;
-        const last = c.length - 1;
-        const t = c[last]; // today
-        const y = c[last - 1]; // yesterday
+        const t = c[c.length - 1]; // today
 
-        // Price change over 1/3/5 trading days.
-        const chg1d = (t.close - y.close) / y.close * 100;
-        const chg3d = last >= 3 ? (t.close - c[last - 3].close) / c[last - 3].close * 100 : 0;
-        const chg5d = last >= 5 ? (t.close - c[last - 5].close) / c[last - 5].close * 100 : 0;
-
-        // Today's volume vs the trailing 5d/10d average (today excluded from the average).
-        const avgVol5 = c.slice(-6, -1).reduce((s, x) => s + x.volume, 0) / 5;
-        const avgVol10 = c.slice(-11, -1).reduce((s, x) => s + x.volume, 0) / Math.min(10, c.length - 1);
-        const volRatio5 = t.volume / (avgVol5 || 1);
-        const volRatio10 = t.volume / (avgVol10 || 1);
-
-        // Volume direction over 5 days: >0 expanding, <0 contracting.
-        const vols5 = c.slice(-5).map(x => x.volume);
-        const volTrend = vols5.length >= 2 ? (vols5[vols5.length - 1] - vols5[0]) / (vols5[0] || 1) : 0;
-
-        // Where today's close sits in the 10-day range (0 = at the low, 1 = at the high).
-        const highs10 = c.slice(-10).map(x => x.high);
-        const lows10 = c.slice(-10).map(x => x.low);
-        const high10 = Math.max(...highs10);
-        const low10 = Math.min(...lows10);
-        const rangePosition = high10 !== low10 ? (t.close - low10) / (high10 - low10) : 0.5;
-
-        const gapUp = t.open > y.close;
-
-        // Closed in the top 30% of today's range = buyers in control.
-        const todayRange = t.high - t.low;
-        const closedNearHigh = todayRange > 0 ? (t.close - t.low) / todayRange > 0.7 : false;
-
-        // Three straight higher lows = a building uptrend.
-        const higher_lows_3d = last >= 2 &&
-            c[last].low >= c[last - 1].low &&
-            c[last - 1].low >= c[last - 2].low;
+        // Shared per-candle metrics: same formulas analyze and every other tool use.
+        const cs = candleStats(c);
+        const { chg1d, chg3d, chg5d, avgVol5, avgVol10, volRatio5, volRatio10, closedNearHigh, closedNearLow, gapUp } = cs;
+        const volTrend = cs.volTrend5d;
+        const rangePosition = cs.rangePos10;
+        const higher_lows_3d = cs.higherLows3d;
 
         // Screener results are keyed by numeric item ID (see screenerItems.ts).
         const r = scrData.results;
@@ -229,7 +202,6 @@ async function main() {
         const confirmations: string[] = [];
         const contradictions: string[] = [];
         const retail1w = retailFlow1w[sym] ?? 0;
-        const closedNearLow = todayRange > 0 && (t.close - t.low) / todayRange < 0.3;
 
         // ═══ FOUNDATION (need at least 1 to proceed) ═══
         // F1: Bandar accumulation trend (value > 0 AND above MA10 or accelerating)
@@ -362,10 +334,7 @@ async function main() {
     try {
         for (const c of candidates.slice(0, checkN)) {
             const m = await fetchStockMeta({ symbol: c.symbol });
-            c.warning = m.isSuspended ? "SUSPENDED"
-                : m.isUma ? "UMA"
-                : m.corporateAction.startsWith("X") ? `ex-date ${m.corporateActionString}`
-                : "";
+            c.warning = metaWarnings(m).join(", ");
             if (c.warning) console.log(`  WARN ${c.symbol}: ${c.warning}`);
         }
     } catch (e) {

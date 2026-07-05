@@ -7,7 +7,7 @@
  *   (or: deno run --unstable-http --allow-net analyzeStock.ts SYMBOL)
  */
 import { fetchCandles } from "./data/stockbitCandles.ts";
-import { avgVolume, distPct, pctChange, sma } from "./market/indicators.ts";
+import { candleStats, distPct, sma } from "./market/indicators.ts";
 
 const sym = Deno.args[0];
 if (!sym) { console.log("Usage: deno task analyze SYMBOL"); Deno.exit(1); }
@@ -20,45 +20,18 @@ const n = c.length;
 const last = c[n - 1];
 
 const closes = c.map((x) => x.close);
-const vols = c.map((x) => x.volume);
 
 // Moving averages
 const ma5 = sma(closes, 5);
 const ma10 = sma(closes, 10);
 const ma20 = sma(closes, 20);
 
-// Price metrics
-const chg1d = pctChange(c[n - 2].close, last.close);
-const chg3d = n >= 4 ? pctChange(c[n - 4].close, last.close) : 0;
-const chg5d = n >= 6 ? pctChange(c[n - 6].close, last.close) : 0;
-
-// Volume (exclude today's in progress bar)
-const avgVol5 = avgVolume(vols, 5, true);
-const avgVol10 = avgVolume(vols, 10, true);
-const volRatio5 = last.volume / (avgVol5 || 1);
-const volRatio10 = last.volume / (avgVol10 || 1);
-
-// Volume trend (last 3 days: expanding or contracting)
-const last3vols = c.slice(-3).map(x => x.volume);
-const volTrend = last3vols[2] > last3vols[1] && last3vols[1] > last3vols[0] ? "EXPANDING" :
-                 last3vols[2] < last3vols[1] && last3vols[1] < last3vols[0] ? "CONTRACTING" : "MIXED";
-
-// Range position (10d)
-const h10 = Math.max(...c.slice(-10).map(x => x.high));
-const l10 = Math.min(...c.slice(-10).map(x => x.low));
-const rangePos = h10 !== l10 ? (last.close - l10) / (h10 - l10) : 0.5;
-
-// Close position
-const todayRange = last.high - last.low;
-const cp = todayRange > 0 ? ((last.close - last.low) / todayRange) * 100 : 50;
-const closedNearHigh = cp > 70;
-const closedNearLow = cp < 30;
-
-// Higher lows
-const hl3d = n >= 3 && c[n-1].low >= c[n-2].low && c[n-2].low >= c[n-3].low;
-
-// Gap
-const gapUp = last.open > c[n-2].close;
+// Shared per-candle metrics: same formulas the picker scores with.
+const s = candleStats(c);
+const { chg1d, chg3d, chg5d, volRatio5, volRatio10, cp, closedNearHigh, closedNearLow, gapUp } = s;
+const volTrend = s.volShape3d;
+const rangePos = s.rangePos10;
+const hl3d = s.higherLows3d;
 
 // Drawdown
 const high60 = Math.max(...c.map(x => x.high));

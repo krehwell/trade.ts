@@ -6,7 +6,7 @@
  */
 
 import { fetchCandles } from "./data/stockbitCandles.ts";
-import { fetchScreener, fetchScreenerAll } from "./data/fetchScreener.ts";
+import { fetchBandarDeltas, fetchScreener } from "./data/fetchScreener.ts";
 import { fetchLatestForeignFlow } from "./data/fetchForeignFlow.ts";
 import { ITEMS } from "./data/screenerItems.ts";
 import { distPct, maSlope, pctChange, sma } from "./market/indicators.ts";
@@ -59,14 +59,7 @@ console.log("\n" + "━".repeat(70));
 console.log("  BANDAR FLOW SCAN (all positive bandar, top 50 by daily delta)");
 console.log("━".repeat(70));
 
-const filters = [
-    { id: ITEMS.BANDAR_VALUE, operator: ">" as const, value: 0 },
-    { id: ITEMS.BANDAR_PREV_VALUE, operator: "!=" as const, value: 999999999999 },
-];
-
-// API ignores ordercol (returns alphabetical), so fetch every positive-bandar
-// row and rank locally. ~8 pages, still fast.
-const allStocks = await fetchScreenerAll({ filters });
+const enriched = await fetchBandarDeltas();
 
 // Breadth: count negative bandar stocks
 const negPage = await fetchScreener({
@@ -74,22 +67,11 @@ const negPage = await fetchScreener({
     page: 1,
     perPage: 1,
 });
-const breadth = ((allStocks.length / (allStocks.length + negPage.totalRows)) * 100).toFixed(1);
+const breadth = ((enriched.length / (enriched.length + negPage.totalRows)) * 100).toFixed(1);
 
 console.log(
-    `Positive bandar: ${allStocks.length} | Negative: ${negPage.totalRows} | Breadth: ${breadth}%\n`,
+    `Positive bandar: ${enriched.length} | Negative: ${negPage.totalRows} | Breadth: ${breadth}%\n`,
 );
-
-// Compute daily deltas
-const enriched = allStocks.map((s) => {
-    const bandar = s.results[ITEMS.BANDAR_VALUE] || 0;
-    const bandarPrev = s.results[ITEMS.BANDAR_PREV_VALUE] || 0;
-    const delta = bandar - bandarPrev;
-    return { symbol: s.symbol, bandar, bandarPrev, delta };
-});
-
-// Sort by daily delta
-enriched.sort((a, b) => b.delta - a.delta);
 
 console.log("Rank | Ticker | BandarCum  | BandarPrev | DailyDelta");
 console.log("-".repeat(60));

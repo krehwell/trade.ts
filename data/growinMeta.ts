@@ -10,6 +10,17 @@ export interface StockMeta {
     isSuspended: boolean;
 }
 
+// Canonical warning strings so every tool flags the same conditions the same
+// way. Ex-date actions start with "X"; "--" means no action.
+export const metaWarnings = (m: StockMeta): string[] => {
+    const w: string[] = [];
+    if (m.isSuspended) w.push("SUSPENDED");
+    if (m.isUma) w.push("UMA");
+    if (m.corporateAction.startsWith("X")) w.push(`ex-date ${m.corporateActionString}`);
+    else if (m.corporateAction !== "--" && m.corporateAction !== "") w.push(`corporate action ${m.corporateActionString}`);
+    return w;
+};
+
 let cookie: string | null = null;
 
 export const fetchStockMeta = async ({ symbol }: { symbol: string }): Promise<StockMeta> => {

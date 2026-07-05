@@ -3,7 +3,7 @@
 //   deno task bandar <symbol> [days=20]
 import { fetchBrokerActivity, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDaily } from "./data/stockbitCandles.ts";
-import { fetchStockMeta } from "./data/growinMeta.ts";
+import { fetchStockMeta, metaWarnings } from "./data/growinMeta.ts";
 
 const symbol = Deno.args[0]?.toUpperCase();
 if (!symbol) {
@@ -76,16 +76,13 @@ if (flowsB.length >= 7) {
     console.log(`\nChecks: 3d ${green3}/3 green | 7d ${green7}/7 green, cum ${(cum7 >= 0 ? "+" : "") + cum7.toFixed(1)}B, buy/sell ratio ${ratio === Infinity ? "inf" : ratio.toFixed(1)}x | price ${phase}`);
     console.log(`VERDICT: ${verdict}`);
 
-    // Corporate action context: a flow spike near a cum date is dividend capture,
-    // not accumulation. Warning only, best effort.
+    // Corporate action context, best effort. Same shared criteria the picker uses.
     try {
-        const m = await fetchStockMeta({ symbol });
-        const flags = [
-            m.isSuspended ? "SUSPENDED" : "",
-            m.isUma ? "UMA" : "",
-            m.corporateAction !== "--" ? `${m.corporateActionString}: flow spikes near the cum date are likely dividend capture, not accumulation` : "",
-        ].filter(Boolean);
-        for (const f of flags) console.log(`⚠ ${f}`);
+        const warnings = metaWarnings(await fetchStockMeta({ symbol }));
+        for (const w of warnings) console.log(`⚠ ${w}`);
+        if (warnings.some((w) => w.startsWith("ex-date"))) {
+            console.log("  flow spikes near the cum date are likely dividend capture, not accumulation");
+        }
     } catch {
         console.log("(corporate-action check skipped: Growin unavailable)");
     }

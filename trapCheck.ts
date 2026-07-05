@@ -21,8 +21,7 @@
 
 import { detectRegime } from "./market/marketRegime.ts";
 import { fetchCandles } from "./data/stockbitCandles.ts";
-import { fetchScreener } from "./data/fetchScreener.ts";
-import { ITEMS } from "./data/screenerItems.ts";
+import { fetchBandarDeltas } from "./data/fetchScreener.ts";
 import { distPct, sma } from "./market/indicators.ts";
 
 // Points each signal contributes to the trap probability when it fires.
@@ -52,26 +51,11 @@ const breadth = r.breadth.ratio * 100;
 const { close, chg1d, chg3d, ma5, ma10, ma20, ma10Slope, distMa20 } = r.ihsg;
 
 // Trap specific check: are today's top inflow names already overextended?
+// Same delta ranking daily uses (fetchBandarDeltas), so both tools watch the
+// same "top inflow" names.
 console.log("[2/2] Checking top flow stocks for overextension...");
-const topFlow = await fetchScreener({
-    filters: [
-        { id: ITEMS.BANDAR_VALUE, operator: ">", value: 0 },
-        { id: ITEMS.BANDAR_PREV_VALUE, operator: "!=", value: 999999999 },
-    ],
-    orderCol: ITEMS.BANDAR_VALUE,
-    orderType: "desc",
-    page: 1,
-    perPage: 10,
-});
-
-// Top net buyers today, ranked by bandar delta (cumulative minus previous).
-const topBuyers = topFlow.stocks
-    .map(s => ({
-        symbol: s.symbol,
-        delta: (s.results[ITEMS.BANDAR_VALUE] || 0) - (s.results[ITEMS.BANDAR_PREV_VALUE] || 0),
-    }))
+const topBuyers = (await fetchBandarDeltas())
     .filter(s => s.delta > 0)
-    .sort((a, b) => b.delta - a.delta)
     .slice(0, 5);
 
 let totalExtension = 0;

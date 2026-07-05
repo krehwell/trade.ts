@@ -2,6 +2,7 @@
 //   results only include the columns listed in `sequence` (not every filter),
 //   the `name` field must be non empty, and there is no date param (always current data).
 import { fetchPOST } from "../net/stockbitFetch.ts";
+import { ITEMS } from "./screenerItems.ts";
 
 export interface ScreenerFilter {
     id: number;
@@ -107,4 +108,30 @@ export const fetchScreenerAll = async ({
     }
 
     return all;
+};
+
+export interface BandarDelta {
+    symbol: string;
+    bandar: number;     // cumulative BANDAR_VALUE
+    bandarPrev: number;
+    delta: number;      // today's flow = bandar - bandarPrev
+}
+
+// Every positive-cum bandar stock with today's delta, biggest inflow first.
+// The one "top inflows" list all tools share (daily scan, trap check).
+// API ignores ordercol, so fetch all pages and rank locally.
+export const fetchBandarDeltas = async (): Promise<BandarDelta[]> => {
+    const stocks = await fetchScreenerAll({
+        filters: [
+            { id: ITEMS.BANDAR_VALUE, operator: ">", value: 0 },
+            { id: ITEMS.BANDAR_PREV_VALUE, operator: "!=", value: 999999999999 },
+        ],
+    });
+    return stocks
+        .map((s) => {
+            const bandar = s.results[ITEMS.BANDAR_VALUE] || 0;
+            const bandarPrev = s.results[ITEMS.BANDAR_PREV_VALUE] || 0;
+            return { symbol: s.symbol, bandar, bandarPrev, delta: bandar - bandarPrev };
+        })
+        .sort((a, b) => b.delta - a.delta);
 };
