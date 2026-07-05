@@ -15,7 +15,7 @@ import { fetchDailyMulti as fetchYahooDailyMulti } from "./data/stockbitCandles.
 import { type YahooCandle } from "./data/yahooCandles.ts";
 import { fetchPOST } from "./net/stockbitFetch.ts";
 import { ITEMS } from "./data/screenerItems.ts";
-import { daysAgo, today } from "./util/date.ts";
+import { daysAgo, fmt, subDays, today } from "./util/date.ts";
 import { fmtNum, printHeader, printSubHeader, printTable } from "./util/print.ts";
 import { detectRegime, printRegime } from "./market/marketRegime.ts";
 import { fetchStockMeta } from "./data/growinMeta.ts";
@@ -134,10 +134,16 @@ async function main() {
     for (const s of bandarDetailStocks) screenerMap.set(s.symbol, s);
 
     // Smart money broker net flow (1d + 1w).  Used for bandar/SM confluence checks.
+    // Anchor to the last trading day, not today(): on a weekend/holiday run the
+    // "1d" window would cover only dead days and zero out SM1d for every stock.
+    const dayAfterLast = regime.lastTradingDate
+        ? fmt(subDays(new Date(regime.lastTradingDate), -1)) // subDays(-1) = +1 day
+        : today();
+    const flowDate = dayAfterLast < today() ? dayAfterLast : today();
     printSubHeader("Step 2: SM Broker flow");
     const smFlows = await fetchBrokerActivityMultiTF({
         brokers: SM_BROKERS,
-        date: today(),
+        date: flowDate,
         timeframes: ["1d", "1w"],
     });
 

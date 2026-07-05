@@ -35,6 +35,7 @@ export interface RegimeResult {
         totalLiquid: number;    // total liquid stocks
     };
     signals: string[];
+    lastTradingDate: string; // ISO date of last IHSG candle. Anchor flow windows here, not today()
 }
 
 export const detectRegime = async (): Promise<RegimeResult> => {
@@ -50,6 +51,7 @@ export const detectRegime = async (): Promise<RegimeResult> => {
             ihsg: { close: 0, chg1d: 0, chg3d: 0, chg5d: 0, ma5: 0, ma10: 0, ma20: 0, aboveMa5: false, aboveMa10: false, aboveMa20: false, ma5Slope: 0, ma10Slope: 0, distMa20: 0, vol1d: 0, avgVol5: 0, volRatio: 0 },
             breadth: { bandarBuying: 0, bandarSelling: 0, ratio: 0, totalLiquid: 0 },
             signals: ["NO_DATA"],
+            lastTradingDate: "",
         };
     }
 
@@ -178,6 +180,7 @@ export const detectRegime = async (): Promise<RegimeResult> => {
         },
         breadth: { bandarBuying, bandarSelling, ratio: breadthRatio, totalLiquid },
         signals,
+        lastTradingDate: t.date,
     };
 };
 
