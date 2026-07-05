@@ -3,6 +3,7 @@
 //   deno task bandar <symbol> [days=20]
 import { fetchBrokerActivity, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDaily } from "./data/stockbitCandles.ts";
+import { fetchStockMeta } from "./data/growinMeta.ts";
 
 const symbol = Deno.args[0]?.toUpperCase();
 if (!symbol) {
@@ -74,5 +75,19 @@ if (flowsB.length >= 7) {
 
     console.log(`\nChecks: 3d ${green3}/3 green | 7d ${green7}/7 green, cum ${(cum7 >= 0 ? "+" : "") + cum7.toFixed(1)}B, buy/sell ratio ${ratio === Infinity ? "inf" : ratio.toFixed(1)}x | price ${phase}`);
     console.log(`VERDICT: ${verdict}`);
+
+    // Corporate action context: a flow spike near a cum date is dividend capture,
+    // not accumulation. Warning only, best effort.
+    try {
+        const m = await fetchStockMeta({ symbol });
+        const flags = [
+            m.isSuspended ? "SUSPENDED" : "",
+            m.isUma ? "UMA" : "",
+            m.corporateAction !== "--" ? `${m.corporateActionString}: flow spikes near the cum date are likely dividend capture, not accumulation` : "",
+        ].filter(Boolean);
+        for (const f of flags) console.log(`⚠ ${f}`);
+    } catch {
+        console.log("(corporate-action check skipped: Growin unavailable)");
+    }
 }
 console.log("Note: per-broker top-200 rows only, so thin stocks can drop out of a broker's list on quiet days.");

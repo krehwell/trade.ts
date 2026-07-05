@@ -96,6 +96,7 @@ interface Candidate {
     grade: "A" | "B" | "C" | "D" | "REJECT";
     score: number;              // confirmations minus contradictions (only for sorting within grade)
     signals: string[];          // all signals for display
+    warning?: string;           // Growin flag (ex-div/UMA/suspended). Display only, never drops the stock
 }
 
 async function main() {
@@ -354,26 +355,21 @@ async function main() {
     const gradeOrder = { A: 0, B: 1, C: 2, D: 3, REJECT: 4 };
     candidates.sort((a, b) => gradeOrder[a.grade] - gradeOrder[b.grade] || b.score - a.score);
 
-    // Veto what scoring can't see: suspension, UMA, ex-date mechanical gap.
+    // Flag what scoring can't see: suspension, UMA, ex-date mechanical gap.
+    // Warning only, never dropped: downstream analysis must see the concern, not lose the stock.
     // Top 15 only (one Growin login + 15 REST calls). Skipped with a warn if Growin is down.
     const checkN = Math.min(candidates.length, 15);
     try {
-        const kept: Candidate[] = [];
         for (const c of candidates.slice(0, checkN)) {
             const m = await fetchStockMeta({ symbol: c.symbol });
-            const veto = m.isSuspended ? "suspended"
+            c.warning = m.isSuspended ? "SUSPENDED"
                 : m.isUma ? "UMA"
-                : m.corporateAction.startsWith("X") ? `ex-date (${m.corporateActionString})`
+                : m.corporateAction.startsWith("X") ? `ex-date ${m.corporateActionString}`
                 : "";
-            if (veto) {
-                console.log(`  VETO ${c.symbol}: ${veto}`);
-                continue;
-            }
-            kept.push(c);
+            if (c.warning) console.log(`  WARN ${c.symbol}: ${c.warning}`);
         }
-        candidates.splice(0, checkN, ...kept);
     } catch (e) {
-        console.log(`  warn: Growin veto skipped, ${(e as Error).message}`);
+        console.log(`  warn: Growin check skipped, ${(e as Error).message}`);
     }
 
     // Print results
@@ -407,7 +403,7 @@ async function main() {
             `${c.volRatio5.toFixed(1)}x`,
             fmtNum(c.bandarValue),
             fmtNum(c.smFlow1w),
-            c.signals.join(", "),
+            (c.warning ? `⚠${c.warning}, ` : "") + c.signals.join(", "),
         ]),
         limit: 30,
     });
@@ -423,6 +419,7 @@ async function main() {
         const reset = "\x1b[0m";
 
         console.log(`\n  ${gradeColor}[${c.grade}]${reset} ${c.symbol} — ${c.price}`);
+        if (c.warning) console.log(`    \x1b[41m\x1b[37m ⚠ ${c.warning} \x1b[0m`);
         console.log(`    Foundation: ${c.foundation.join(", ")}`);
         console.log(`    Confirmed:  ${c.confirmations.length > 0 ? c.confirmations.join(" | ") : "none"}`);
         if (c.contradictions.length > 0) {
