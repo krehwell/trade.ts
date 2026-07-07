@@ -1,19 +1,10 @@
 // Growin account reads: portfolio, cash, orders, realized P&L.
 // All authed by the same cookie getGrowinCookie() builds; endpoints captured
 // from the invest.growin.id web session. Cookie cached per run.
-import { getGrowinCookie } from "../net/growinAuth.ts";
+import { getGrowinCookie, GROWIN_HEADERS } from "../net/growinAuth.ts";
 import { daysAgo, today } from "../util/date.ts";
 
-const HEADERS = {
-    "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:152.0) Gecko/20100101 Firefox/152.0",
-    Accept: "application/json, text/plain, */*",
-    "Accept-Language": "en",
-    Origin: "https://invest.growin.id",
-    Referer: "https://invest.growin.id/",
-    "x-app-name": "web",
-    "x-app-version": "v1.0.0",
-};
+const HEADERS = GROWIN_HEADERS;
 
 let cookie: string | null = null;
 let login: Promise<string> | null = null;
@@ -35,13 +26,32 @@ const authCookie = async (): Promise<string> => {
 
 // Growin is single-session: concurrent logins kick each other out
 // dedupe is the solution
-const get = async (path: string) => {
+// Shared authed request (PIN cookie attached). body != undefined => JSON POST/PUT/DELETE.
+export const growinFetch = async (
+    path: string,
+    { method = "GET", body }: { method?: string; body?: unknown } = {},
+) => {
     cookie ??= await (login ??= authCookie());
     const res = await fetch(`https://api.growin.id${path}`, {
-        headers: { ...HEADERS, Cookie: cookie },
+        method,
+        headers: {
+            ...HEADERS,
+            Cookie: cookie,
+            ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
-    if (!res.ok) throw new Error(`Growin ${path}: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Growin ${method} ${path}: HTTP ${res.status} ${await res.text()}`);
     return await res.json();
+};
+
+const get = (path: string) => growinFetch(path);
+
+// Authed cookie (base + PIN), deduped. For callers that need the raw string
+// (e.g. the order WebSocket handshake).
+export const growinAuthCookie = async (): Promise<string> => {
+    cookie ??= await (login ??= authCookie());
+    return cookie;
 };
 
 export interface Holding {

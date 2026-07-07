@@ -1,6 +1,6 @@
 // Stock metadata from Growin REST (corporate action, UMA, suspension).
 // Cookie cached per run: Growin is single-session, one login covers all symbols.
-import { getGrowinCookie } from "../net/growinAuth.ts";
+import { getGrowinCookie, GROWIN_HEADERS } from "../net/growinAuth.ts";
 
 export interface StockMeta {
     symbol: string;
@@ -27,19 +27,7 @@ export const fetchStockMeta = async ({ symbol }: { symbol: string }): Promise<St
     cookie ??= await getGrowinCookie();
     const res = await fetch(
         `https://api.growin.id/marketdata/api/v1/orderbook/${symbol.toUpperCase()}`,
-        {
-            headers: {
-                "User-Agent":
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:152.0) Gecko/20100101 Firefox/152.0",
-                Accept: "application/json, text/plain, */*",
-                "Accept-Language": "en",
-                Origin: "https://invest.growin.id",
-                Referer: "https://invest.growin.id/",
-                "x-app-name": "web",
-                "x-app-version": "v1.0.0",
-                Cookie: cookie,
-            },
-        },
+        { headers: { ...GROWIN_HEADERS, Cookie: cookie } },
     );
     if (!res.ok) throw new Error(`Growin meta ${symbol}: HTTP ${res.status}`);
     const d = (await res.json())?.data;

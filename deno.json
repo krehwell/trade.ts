@@ -8,7 +8,8 @@
     "bandar-top": "deno run --unstable-http --allow-net bandarToday.ts",
     "orderbook": "deno run --unstable-net --env-file --allow-net --allow-env orderbook.ts",
     "trap": "deno run --unstable-http --allow-net trapCheck.ts",
-    "account": "deno run --unstable-http --env-file --allow-env --allow-net account.ts"
+    "account": "deno run --unstable-http --env-file --allow-env --allow-net account.ts",
+    "order": "deno run --unstable-http --env-file --allow-env --allow-net order.ts"
   },
   "compilerOptions": {
     "strict": true

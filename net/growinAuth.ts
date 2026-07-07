@@ -15,6 +15,19 @@ const GROWIN_EMAIL = env("GROWIN_EMAIL");
 const GROWIN_PASSWORD = env("GROWIN_PASSWORD");
 const DEVICE_ID = env("GROWIN_DEVICE_ID"); // reused as x-device-id + login_device_uid
 
+// Shared browser identity Growin/Akamai expects on every request.
+export const GROWIN_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:152.0) Gecko/20100101 Firefox/152.0";
+export const GROWIN_HEADERS: Record<string, string> = {
+  "User-Agent": GROWIN_UA,
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en",
+  Origin: "https://invest.growin.id",
+  Referer: "https://invest.growin.id/",
+  "x-app-name": "web",
+  "x-app-version": "v1.0.0",
+};
+
 export const getGrowinCookie = async (): Promise<string> => {
   if (!GROWIN_EMAIL || !GROWIN_PASSWORD || !DEVICE_ID) {
     throw new Error(
@@ -24,15 +37,8 @@ export const getGrowinCookie = async (): Promise<string> => {
   const res = await fetch("https://api.growin.id/auth/api/v1/login", {
     method: "POST",
     headers: {
+      ...GROWIN_HEADERS,
       "Content-Type": "application/json",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:152.0) Gecko/20100101 Firefox/152.0",
-      Accept: "application/json, text/plain, */*",
-      "Accept-Language": "en",
-      Origin: "https://invest.growin.id",
-      Referer: "https://invest.growin.id/",
-      "x-app-name": "web",
-      "x-app-version": "v1.0.0",
       "x-device-id": DEVICE_ID,
       Cookie: `AKA_A2=A; login_device_uid=${DEVICE_ID}`,
     },

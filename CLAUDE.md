@@ -110,12 +110,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 
 - Deno + TypeScript, ESM imports with `.ts` extensions
 - Params as single object: `fetchX({ a, b })`. Export param/return interfaces
-- Stockbit token in `net/stockbitAuth.ts` (not .env). Growin creds in `.env` (task's `--env-file`)
 - Small reusable utilities, composed in entry scripts. Sensible defaults. No abstractions for one-time use
-- Native `fetch`, not node:https
-- Stockbit requests only via `net/stockbitFetch.ts`
-- Candles only via `data/stockbitCandles.ts` (chartbit, Yahoo fallback). Never import `yahooCandles` directly
-- TA formulas from `market/indicators.ts`, never inline
 - No comments on declarative-enough functions. Comment only non-obvious constraints (rate limits, API traps, ordering requirements)
 
 # API Quirks
