@@ -114,19 +114,22 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
     };
 };
 
-export const createAutoOrder = async (o: CreateAutoOrder): Promise<{ uuid: string; payload: unknown }> => {
-    const payload = buildCreatePayload(o);
-    payload.orderbook_id = await resolveOrderbookId(o.symbol);
-    const j = await growinFetch("/autoorder/api/v1", { method: "POST", body: payload });
-    return { uuid: j?.data?.auto_order_uuid, payload };
-};
-
-// control_state 2 = pause (resumable), 1 = resume
+// control_state 1 = play/run, 2 = pause. A freshly created order sits PAUSED
+// (status 1); it only runs once played (status -> 3).
 export const controlAutoOrder = (uuid: string, state: 1 | 2) =>
     growinFetch("/autoorder/api/v1/control", {
         method: "PUT",
         body: { auto_order_uuid: uuid, control_state: state },
     });
+
+export const createAutoOrder = async (o: CreateAutoOrder): Promise<{ uuid: string; payload: unknown }> => {
+    const payload = buildCreatePayload(o);
+    payload.orderbook_id = await resolveOrderbookId(o.symbol);
+    const j = await growinFetch("/autoorder/api/v1", { method: "POST", body: payload });
+    const uuid = j?.data?.auto_order_uuid;
+    if (uuid) await controlAutoOrder(uuid, 1); // created paused; play so it actually runs
+    return { uuid, payload };
+};
 
 // hard delete (permanent cancel)
 export const deleteAutoOrder = (uuid: string) =>
