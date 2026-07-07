@@ -93,7 +93,7 @@ export interface OrderAck {
 }
 
 // ack envelope: f3 { f6 { f2=orderId, f6=status, f7=sym, f9=lot, f10=price, f18=marketId } }
-// The server sends a terse ack first, then the detailed one; require marketId
+// The server sends a terse ack first, then the detailed one, so require marketId
 // (f18) so we return the complete confirmation, not the partial.
 const parseAck = (payload: Uint8Array): OrderAck | null => {
     const resp = get(parse(payload), 3)?.s;
@@ -118,7 +118,7 @@ const parseAck = (payload: Uint8Array): OrderAck | null => {
 };
 
 // confirmation envelope: f3 { f1 { f2=internalId, f13=sequence } }. Arrives after
-// the ack; carries the two ids needed to amend/withdraw this order later.
+// the ack, and carries the two ids needed to amend/withdraw this order later.
 const parseConf = (payload: Uint8Array): { internalId: number; sequence: number } | null => {
     const resp = get(parse(payload), 3)?.s;
     if (!resp) return null;
@@ -132,7 +132,7 @@ const parseConf = (payload: Uint8Array): { internalId: number; sequence: number 
 
 // Send one order-action frame, collect the ack. For place, also wait for the
 // confirmation frame (internalId + sequence) so the order can be amended/withdrawn
-// later; amend/withdraw don't emit one, so they return on the ack.
+// later. Amend/withdraw don't emit one, so they return on the ack.
 const sendAction = async (frame: Uint8Array, needConf: boolean, timeoutMs = 8000): Promise<OrderAck> => {
     const w = await wsConnect("/order/ws", await growinAuthCookie());
     try {

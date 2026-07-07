@@ -1,5 +1,5 @@
 // Growin account reads: portfolio, cash, orders, realized P&L.
-// Endpoints captured from the invest.growin.id web session; auth via growinFetch.
+// Endpoints captured from the invest.growin.id web session. Auth via growinFetch.
 import { growinFetch } from "../net/growinFetch.ts";
 import { daysAgo, today } from "../util/date.ts";
 
@@ -86,7 +86,7 @@ const LIVE = new Set(["OPEN", "PARTIAL", "PENDING"]);
 export const isLive = (o: Order): boolean => LIVE.has(o.status);
 
 // Orders can be amended/withdrawn only in certain states. Map is per
-// order_type+status (DIRECTOPEN, POOLINGPARTIAL, ...); we key on the tail.
+// order_type+status (DIRECTOPEN, POOLINGPARTIAL, ...), so we key on the tail.
 let actionMap: Record<string, { AMEND: boolean; WITHDRAW: boolean }> | null = null;
 const loadActionMap = async () => {
     if (actionMap) return actionMap;

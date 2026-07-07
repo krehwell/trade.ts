@@ -146,8 +146,8 @@ export const detectRegime = async (): Promise<RegimeResult> => {
     // Breadth scoring
     if (breadthRatio > 0.6) { score += 2; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying`); }
     else if (breadthRatio > 0.5) { score += 1; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying`); }
-    else if (breadthRatio < 0.3) { score -= 2; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying — BEARISH`); }
-    else if (breadthRatio < 0.4) { score -= 1; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying — weak`); }
+    else if (breadthRatio < 0.3) { score -= 2; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying - BEARISH`); }
+    else if (breadthRatio < 0.4) { score -= 1; signals.push(`breadth ${(breadthRatio * 100).toFixed(0)}% buying - weak`); }
 
     // Map the cumulative score to a regime band (higher = more risk on).
     let regime: Regime;

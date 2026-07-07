@@ -32,7 +32,7 @@ Breadth: <22% hostile, >30% healthy.
 
 ### SIT_OUT (overrides all stock-level analysis)
 
-- TP = +1.7%. Bounces top out ~+2% then fade; target under the ceiling. Not "resistance", not +5%.
+- TP = +1.7%. Bounces top out ~+2% then fade, so target under the ceiling. Not "resistance", not +5%.
 - Stop = -2%. Cut fast.
 - Gap >1% = no entry. Gap >2% = sell into it, the gap IS the move.
 - Wait 60min after open, for entries AND final OUT calls (first-hour whipsaw fakes MA5 breaks both ways). IHSG red >1% at 9:30 = no entries.
@@ -49,9 +49,9 @@ Before any entry/TP/stop: "am I using the regime table?" TP above the table = wr
 
 # Analysis Checklist
 
-**Price action**: higher or lower highs/lows last 5-7 candles. Close near high = bullish, near low = distribution. Gap up held = strong, faded = trap. Price up + vol up = real; vol down = suspect.
+**Price action**: higher or lower highs/lows last 5-7 candles. Close near high = bullish, near low = distribution. Gap up held = strong, faded = trap. Price up + vol up = real, while vol down = suspect.
 
-**Flow**: delta positive and accelerating = strong. Decelerating = fading. Big cumulative but negative delta = distribution, avoid. In picker but NOT in top 50 daily inflows → fetch numbers; cum <50B + delta <0.1B = reject. Picker grade alone doesn't prove bandar presence.
+**Flow**: delta positive and accelerating = strong. Decelerating = fading. Big cumulative but negative delta = distribution, avoid. In picker but NOT in top 50 daily inflows → fetch numbers. Cum <50B + delta <0.1B = reject. Picker grade alone doesn't prove bandar presence.
 
 **Accumulation framework (mandatory before any conviction pick)**: run `deno task bandar <sym> 10`, it prints the verdict. Consistency beats size:
 - 3d: streak and momentum. ≥2 of 3 green, flow not decaying
@@ -104,7 +104,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - Test before declaring done
 - No sycophancy, no closing fluff
 - Simple + direct. User instructions override this file
-- No em-dashes in docs or comments. Use colon, comma, or period
+- No em-dashes and no semicolons in prose (docs and code comments). Join clauses with a proper conjunction (and, so, but, while, since) or split into two sentences
 
 # Code Conventions
 
@@ -116,8 +116,8 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 # API Quirks
 
 ### Screener
-- Results only include `sequence` columns, not filter columns. `fetchScreener` auto-sequences filter IDs; `picker.ts` has `fetchScreenerWithColumns` for explicit columns
-- BANDAR_VALUE is cumulative. Daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`; add BANDAR_PREV_VALUE as dummy filter to get it returned. Always compute the delta, big cumulative can be net selling today
+- Results only include `sequence` columns, not filter columns. `fetchScreener` auto-sequences filter IDs. `picker.ts` has `fetchScreenerWithColumns` for explicit columns
+- BANDAR_VALUE is cumulative. Daily flow = `BANDAR_VALUE - BANDAR_PREV_VALUE`. Add BANDAR_PREV_VALUE as a dummy filter to get it returned. Always compute the delta, big cumulative can be net selling today
 - `name` must be non-empty (`"screen"`). No date param, always current
 - API ignores `ordercol`/`ordertype`, returns alphabetical. Fetch all pages via `fetchScreenerAll`, sort locally
 
@@ -139,8 +139,8 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 ### Growin account + orders
 - Account/portfolio/order reads (`growinAccount.ts`) live behind `/protected/` routes that need a PIN-verified session: `pin-login` with `GROWIN_PIN`, then carry `PIN_ACCESS_TOKEN`. Base login alone = 401. Auth handled by `net/growinFetch.ts`
 - Two order paths: **auto-order** (`growinAutoOrder.ts`, REST) is CONDITIONAL, it waits for a price trigger and never fills instantly, even if the condition is already true. **Direct order** (`growinOrderWs.ts`, protobuf WS) is the only INSTANT path. Never expect an auto-order to market-fill now
-- Direct order can't be captured from HAR (WS frames aren't exported). Frames were hand-decoded from DevTools; encoders are byte-verified against captures. Amend/withdraw need `internalId`+`sequence` from the place confirmation, so they only work on script-placed orders
-- Growin is single-session: concurrent logins kick each other out. `growinFetch` dedupes the login promise; don't fan out logins
+- Direct order can't be captured from HAR (WS frames aren't exported). Frames were hand-decoded from DevTools, and the encoders are byte-verified against captures. Amend/withdraw need `internalId`+`sequence` from the place confirmation, so they only work on script-placed orders
+- Growin is single-session: concurrent logins kick each other out. `growinFetch` dedupes the login promise, so don't fan out logins
 
 ### Foreign flow (IDX)
 - `idx.co.id/primary/TradingSummary/GetStockSummary?date=YYYYMMDD`: token-free, per-stock ForeignBuy/Sell (shares). Net value approximated × close
@@ -148,10 +148,10 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - EOD data: today empty until after close. Foreign ≠ bandar, different lens (foreign institutional vs domestic operators), use for confluence not 1:1
 
 ### Candles
-- Chartbit intraday near-real-time; serves closed buckets only, last candle at most one bucket behind. `minutes_multiplier: 1` when freshness matters
+- Chartbit intraday near-real-time, serves closed buckets only, last candle at most one bucket behind. `minutes_multiplier: 1` when freshness matters
 - `GET /chartbit/{TICKER}/price/daily` + `/intraday`. Daily `from`/`to` = `YYYY-MM-DD`, from=newer to=older. Intraday = unix seconds + `minutes_multiplier`
-- Chartbit ticker bare (`BBCA`), Yahoo `.JK`. `stockbitCandles.ts` normalizes; index symbols (`^JKSE` = IHSG) go straight to Yahoo
-- Chartbit daily `unixdate` = 00:00 WIB (previous UTC day); `stockbitCandles.ts` anchors to calendar date to match Yahoo
+- Chartbit ticker bare (`BBCA`), Yahoo `.JK`. `stockbitCandles.ts` normalizes. Index symbols (`^JKSE` = IHSG) go straight to Yahoo
+- Chartbit daily `unixdate` = 00:00 WIB (previous UTC day). `stockbitCandles.ts` anchors to calendar date to match Yahoo
 - Illiquid/suspended tickers missing on chartbit → Yahoo fallback covers
 
 # Token Refresh
@@ -166,7 +166,7 @@ Token in `net/stockbitAuth.ts` = exodus data token (RS256, ~24h). Both constants
 
 # Project Structure
 
-Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
+Entry points at root, with the rest grouped into `market/` `data/` `net/` `util/`.
 
 ## Entry points
 - `daily.ts` (`deno task daily`): run first. Regime via shared `detectRegime`, IHSG technicals + last-10 candles, screener scan with deltas, IDX foreign flow + bandar-vs-foreign cross-ref, candles for top-10 inflows
@@ -195,7 +195,7 @@ Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 - `growinMeta.ts`: `fetchStockMeta({symbol})`, corporate action + UMA + suspension flags from Growin REST. Picker uses it to veto. Cookie cached per run. "no action" = `"--"`, ex-dates start with `X`
 - `growinAccount.ts`: portfolio/orders/pnl REST reads: `fetchHoldings`, `fetchConsolidated`, `fetchCash`, `fetchOrders`, `fetchRealizedPnl`. Authed via `net/growinFetch.ts` (PIN cookie)
 - `growinAutoOrder.ts`: auto-order (conditional order) REST. `resolveOrderbookId`, `createAutoOrder`, `listAutoOrders`, `controlAutoOrder` (stop/resume), `deleteAutoOrder`. Waits for a price trigger, never fires instantly
-- `growinOrderWs.ts`: direct order (instant) over the order WebSocket. `placeDirectOrder`, `withdrawDirectOrder`, `amendDirectOrder`, frame builders. Protobuf send frames reverse-engineered from captures; amend/withdraw need `internalId`+`sequence` from the place confirmation
+- `growinOrderWs.ts`: direct order (instant) over the order WebSocket. `placeDirectOrder`, `withdrawDirectOrder`, `amendDirectOrder`, frame builders. Protobuf send frames reverse-engineered from captures. Amend/withdraw need `internalId`+`sequence` from the place confirmation
 
 ## net
 - `stockbitFetch.ts`: `fetchGET`/`fetchPOST`, auth baked in, auto-refresh on 401

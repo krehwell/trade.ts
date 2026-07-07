@@ -11,7 +11,7 @@ export interface StockMeta {
 }
 
 // Canonical warning strings so every tool flags the same conditions the same
-// way. Ex-date actions start with "X"; "--" means no action.
+// way. Ex-date actions start with "X", and "--" means no action.
 export const metaWarnings = (m: StockMeta): string[] => {
     const w: string[] = [];
     if (m.isSuspended) w.push("SUSPENDED");

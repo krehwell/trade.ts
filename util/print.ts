@@ -101,7 +101,7 @@ export const printFlowSummary = ({
     console.log(`  Intersection:          ${intersection.length} stocks`);
 
     if (intersection.length > 0) {
-        printSubHeader("HIGH CONVICTION — Technical + Smart Money");
+        printSubHeader("HIGH CONVICTION - Technical + Smart Money");
         printTable({
             columns: [
                 { label: "#", width: 4, align: "right" },

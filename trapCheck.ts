@@ -1,7 +1,7 @@
 // deno task trap
 // Premarket trap probability 0-100: SM flow that looks like accumulation but is really an exit,
 // so a bounce fades and traps whoever chased. Shares detectRegime() + the top-inflows list with
-// daily/picker; the trap-specific tell is top inflows stretched above MA5 on fading volume.
+// daily/picker. The trap-specific tell is top inflows stretched above MA5 on fading volume.
 //   < 55    ENTER  normal regime-table rules apply
 //   55..79  WAIT   trade small and late, hard +2% cap
 //   >= 80   SKIP   stand aside, the move is a trap

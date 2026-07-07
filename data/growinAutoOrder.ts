@@ -1,11 +1,11 @@
 // Growin auto-order (conditional order) API. Endpoints captured from the web app.
-// This is the ONLY REST order path Growin exposes; plain "direct" orders go over
+// This is the ONLY REST order path Growin exposes. Plain "direct" orders go over
 // a WebSocket that HAR can't capture. Auto-order covers buy/sell/cancel + auto
 // sell-after-buy, so it's the practical scripting surface.
 import { growinFetch } from "../net/growinFetch.ts";
 import { today } from "../util/date.ts";
 
-// Reguler board id (not cash board); create/amend need it, not the symbol.
+// Reguler board id (not cash board). Create/amend need it, not the symbol.
 export const resolveOrderbookId = async (symbol: string): Promise<number> => {
     const d = (await growinFetch(`/marketdata/api/v1/orderbook/${symbol.toUpperCase()}`))?.data;
     const id = d?.id_orderbook_reguler;
@@ -70,8 +70,8 @@ export interface CreateAutoOrder {
 
 // Maps the UI's condition + execute onto the captured payload fields.
 //   Condition: BUY triggers on last price (last_price_*_bound), SELL on target
-//     price (target_price_*_bound) — that asymmetry is what the captured frames show.
-//   Execute: Price => order_set_type 2 + quote_price; Tick => order_set_type 1 + tick_size.
+//     price (target_price_*_bound). That asymmetry is what the captured frames show.
+//   Execute: Price => order_set_type 2 + quote_price. Tick => order_set_type 1 + tick_size.
 // Some mappings (ge condition, the target mirror for buy) are inferred from a
 // single capture, so createAutoOrder returns the payload to eyeball, and each new
 // variant should be verified against the app on first use.
@@ -115,7 +115,7 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
 };
 
 // control_state 1 = play/run, 2 = pause. A freshly created order sits PAUSED
-// (status 1); it only runs once played (status -> 3).
+// (status 1). It only runs once played (status -> 3).
 export const controlAutoOrder = (uuid: string, state: 1 | 2) =>
     growinFetch("/autoorder/api/v1/control", {
         method: "PUT",

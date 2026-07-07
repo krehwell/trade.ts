@@ -50,7 +50,7 @@ deno task order dwithdraw <marketId> <internalId> <sequence>
 
 ## Layout
 
-Entry points live at the root; everything else is grouped by role under `market/`, `data/`, `net/`, `util/`. **`CLAUDE.md` has the per-module breakdown** (functions, constraints, the API traps that bite) — it's the single source for that, kept current there rather than mirrored here.
+Entry points live at the root. Everything else is grouped by role under `market/`, `data/`, `net/`, `util/`. **`CLAUDE.md` has the per-module breakdown** (functions, constraints, the API traps that bite). That's the one place it lives, kept current there instead of copied here.
 
 ## API notes
 

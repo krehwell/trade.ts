@@ -5,7 +5,7 @@ const BASE = "https://exodus.stockbit.com";
 
 // All token fields are COMPLETE Authorization header strings ("Bearer <jwt>"), matching
 // the form stored in stockbitAuth.ts.  A raw JWT only becomes a "Bearer ..." string below,
-// where the API response is read; nowhere else should prepend "Bearer ".
+// where the API response is read, and nowhere else should prepend "Bearer ".
 export interface RefreshedTokens {
     token: string; // "Bearer <jwt>", new access, ready for the Authorization header
     refreshToken: string; // "Bearer <jwt>", new refresh (rotated)

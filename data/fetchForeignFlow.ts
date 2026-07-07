@@ -1,5 +1,5 @@
 // Foreign flow per stock from idx.co.id daily stock summary. Token-free, needs
-// browser headers or Cloudflare blocks it. ForeignBuy/Sell are shares; net value
+// browser headers or Cloudflare blocks it. ForeignBuy/Sell are shares, so net value is
 // approximated with close price. EOD data: today is empty until after close.
 import { warpClient } from "../net/warpClient.ts";
 import { fmt, subDays } from "../util/date.ts";

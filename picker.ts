@@ -3,8 +3,8 @@
 // Exits on SIT_OUT.
 //
 // Why the scoring leans into momentum (backtest Apr 21-23): winners were runners that KEPT
-// running (COAL +34%, BDMN +25%), so penalizing "overextended" was wrong; volume spikes marked
-// continuation not exhaustion when paired with bandar accumulation; "safe" picks averaged +0%.
+// running (COAL +34%, BDMN +25%), so penalizing "overextended" was wrong, and volume spikes marked
+// continuation not exhaustion when paired with bandar accumulation, while "safe" picks averaged +0%.
 // Edge = bandar accumulation + volume breakout + price momentum in small/mid caps.
 import { fetchScreener, type ScreenerStock } from "./data/fetchScreener.ts";
 import { fetchBrokerActivity, fetchBrokerActivityMultiTF, RETAIL_BROKERS, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
@@ -98,7 +98,7 @@ interface Candidate {
 }
 
 async function main() {
-    printHeader(`IMPROVED ANALYZER — ${today()}`);
+    printHeader(`IMPROVED ANALYZER - ${today()}`);
 
     // Regime gate: a hostile market (SIT_OUT) overrides every stock level signal,
     // so bail before doing any expensive per stock work.
@@ -106,7 +106,7 @@ async function main() {
     printRegime(regime);
 
     if (regime.regime === "SIT_OUT") {
-        console.log("  Stopping analysis — market regime is hostile.");
+        console.log("  Stopping analysis - market regime is hostile.");
         return;
     }
 
@@ -376,7 +376,7 @@ async function main() {
 
     // Regime aware pick count
     const maxPicks = regime.regime === "AGGRESSIVE" ? 10 : regime.regime === "NORMAL" ? 7 : 3;
-    printSubHeader(`DETAILED VIEW — Top ${maxPicks} (regime: ${regime.regime})`);
+    printSubHeader(`DETAILED VIEW - Top ${maxPicks} (regime: ${regime.regime})`);
     for (const c of candidates.slice(0, maxPicks)) {
         const yahooC = candles[c.symbol];
         if (!yahooC) continue;
@@ -384,7 +384,7 @@ async function main() {
         const gradeColor = c.grade === "A" ? "\x1b[32m" : c.grade === "B" ? "\x1b[33m" : "\x1b[90m";
         const reset = "\x1b[0m";
 
-        console.log(`\n  ${gradeColor}[${c.grade}]${reset} ${c.symbol} — ${c.price}`);
+        console.log(`\n  ${gradeColor}[${c.grade}]${reset} ${c.symbol} - ${c.price}`);
         if (c.warning) console.log(`    \x1b[41m\x1b[37m ⚠ ${c.warning} \x1b[0m`);
         console.log(`    Foundation: ${c.foundation.join(", ")}`);
         console.log(`    Confirmed:  ${c.confirmations.length > 0 ? c.confirmations.join(" | ") : "none"}`);

@@ -105,7 +105,7 @@ if (import.meta.main) {
     assert(pctChange(10, 11) === 10, "pctChange +10%");
     assert(pctChange(0, 5) === 0, "pctChange div0 -> 0");
     assert(distPct(11, 10) === 10, "distPct price above MA");
-    // now=sma([13,14,15])=14 ; past=sma([11,12,13])=12 ; +16.6%
+    // now=sma([13,14,15])=14, past=sma([11,12,13])=12, so +16.6%
     assert(near(maSlope(closes, 3, 2), (14 - 12) / 12 * 100), "maSlope rising");
     assert(maSlope([1, 2], 3, 1) === 0, "maSlope 0 when insufficient");
     assert(avgVolume([100, 200, 300], 2) === 250, "avgVolume last-2");

@@ -13,7 +13,7 @@ import {
 const DAY_MS = 86_400_000;
 const rangeToDays = (range: string) => parseInt(range, 10) || 30;
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-// Yahoo wants "BBCA.JK"; chartbit wants the bare ticker "BBCA".
+// Yahoo wants "BBCA.JK", while chartbit wants the bare ticker "BBCA".
 const bareTicker = (symbol: string) => symbol.replace(/\.jk$/i, "").toUpperCase();
 
 // Raw chartbit daily rows (newest first), or [] if no data / error.
@@ -32,7 +32,7 @@ const fetchStockbitDaily = async (symbol: string, days: number): Promise<Candle[
     const raw = await rawDaily(symbol, days);
     return raw
         .map((c): Candle => ({
-            // c.unixdate is 00:00 WIB -> previous UTC day; anchor to the calendar
+            // c.unixdate is 00:00 WIB -> previous UTC day, so anchor to the calendar
             // day at 00:00Z so day labels match Yahoo's daily candles.
             date: Date.parse(`${c.date}T00:00:00Z`) / 1000,
             open: Number(c.open),

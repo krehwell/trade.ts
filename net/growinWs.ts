@@ -1,6 +1,6 @@
 // Manual HTTP/1.1 WebSocket over TLS to api.growin.id. Deno's WebSocketStream
 // negotiates HTTP/2 which the server rejects, so hand-roll the upgrade. We don't
-// offer permessage-deflate; Growin's frames are small and sent uncompressed.
+// offer permessage-deflate, since Growin's frames are small and sent uncompressed.
 import { GROWIN_UA } from "./growinAuth.ts";
 
 export interface WsConn {

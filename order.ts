@@ -4,7 +4,7 @@
 //   sell <sym> <lot> <cond> <exec>                  conditional sell
 //        <cond> = le=<price> | ge=<price>   (fire when price ≤ / ≥ that level)
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
-//        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price; sell = ge + tick 0)
+//        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
 //   stop <uuid>                           pause (resumable)
 //   resume <uuid>                         resume a paused order
 //   cancel <uuid>                         delete permanently
@@ -57,7 +57,7 @@ switch (cmd) {
             Deno.exit(1);
         };
         if (!sym || !lot) usage();
-        // parse cond/exec tokens; a bare number is shorthand (buy le+at, sell ge+tick0)
+        // parse cond/exec tokens, where a bare number is shorthand (buy le+at, sell ge+tick0)
         let condition: Condition | undefined;
         let execute: Execute | undefined;
         let sellAt: number | undefined;
