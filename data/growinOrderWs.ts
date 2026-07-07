@@ -42,6 +42,45 @@ export const buildOrderFrame = (o: DirectOrder): Uint8Array => {
     return new Uint8Array(env);
 };
 
+// Amend / withdraw target a resting order. The action is chosen by which field
+// number carries the payload inside the f2 wrapper: f1=place, f2=amend, f3=withdraw.
+// envelope.f1 carries { f1: marketOrderId } (which order). internalId + sequence
+// come from that order's place confirmation (see OrderAck).
+export interface OrderRef {
+    marketOrderId: string; // GW...@...
+    internalId: number; // from place confirmation
+    sequence: number; // from place confirmation
+}
+
+const refEnvelope = (ref: OrderRef, wrapperField: number, inner: number[]): Uint8Array => {
+    const wrapper: number[] = [];
+    len(wrapperField, inner, wrapper);
+    const idRef: number[] = [];
+    str(1, ref.marketOrderId, idRef);
+    const env: number[] = [];
+    len(1, idRef, env); // envelope.f1 = { f1: marketOrderId }
+    len(2, wrapper, env); // envelope.f2 = { f<field>: inner }
+    return new Uint8Array(env);
+};
+
+export const buildWithdrawFrame = (ref: OrderRef): Uint8Array => {
+    const inner: number[] = [];
+    vint(1, ref.internalId, inner);
+    vint(2, 3, inner); // action = withdraw
+    vint(3, ref.sequence, inner);
+    return refEnvelope(ref, 3, inner);
+};
+
+export const buildAmendFrame = (ref: OrderRef, newPrice: number): Uint8Array => {
+    const inner: number[] = [];
+    vint(1, ref.internalId, inner);
+    vint(2, 2, inner); // action = amend
+    vint(3, newPrice, inner);
+    vint(4, 3, inner); // constant observed in captures
+    vint(5, ref.sequence, inner);
+    return refEnvelope(ref, 2, inner);
+};
+
 export interface OrderAck {
     orderId: number;
     status: string; // "B" buy accepted, "S" sell accepted
@@ -49,6 +88,8 @@ export interface OrderAck {
     lot: number;
     price: number;
     marketOrderId: string; // e.g. GW7982383@M57C3762
+    internalId: number; // from confirmation frame; needed to amend/withdraw later
+    sequence: number; // from confirmation frame; needed to amend/withdraw later
 }
 
 // ack envelope: f3 { f6 { f2=orderId, f6=status, f7=sym, f9=lot, f10=price, f18=marketId } }
@@ -71,24 +112,32 @@ const parseAck = (payload: Uint8Array): OrderAck | null => {
         lot: get(f, 9)?.v ?? 0,
         price: get(f, 10)?.v ?? 0,
         marketOrderId,
+        internalId: 0,
+        sequence: 0,
     };
 };
 
-export const placeDirectOrder = async (
-    { symbol, side, lot, price, timeoutMs = 8000 }: {
-        symbol: string;
-        side: "BUY" | "SELL";
-        lot: number;
-        price: number;
-        timeoutMs?: number;
-    },
-): Promise<OrderAck> => {
-    const orderbookId = await resolveOrderbookId(symbol);
-    const cookie = await growinAuthCookie();
-    const w = await wsConnect("/order/ws", cookie);
-    const frame = buildOrderFrame({ symbol, side, lot, price, orderbookId });
+// confirmation envelope: f3 { f1 { f2=internalId, f13=sequence } }. Arrives after
+// the ack; carries the two ids needed to amend/withdraw this order later.
+const parseConf = (payload: Uint8Array): { internalId: number; sequence: number } | null => {
+    const resp = get(parse(payload), 3)?.s;
+    if (!resp) return null;
+    const o = get(parse(resp), 1)?.s;
+    if (!o) return null;
+    const f = parse(o);
+    const internalId = get(f, 2)?.v ?? 0;
+    if (!internalId) return null;
+    return { internalId, sequence: get(f, 13)?.v ?? 0 };
+};
+
+// Send one order-action frame, collect the ack. For place, also wait for the
+// confirmation frame (internalId + sequence) so the order can be amended/withdrawn
+// later; amend/withdraw don't emit one, so they return on the ack.
+const sendAction = async (frame: Uint8Array, needConf: boolean, timeoutMs = 8000): Promise<OrderAck> => {
+    const w = await wsConnect("/order/ws", await growinAuthCookie());
     try {
         await writeFrame(w.conn, 0x2, frame);
+        let ack: OrderAck | null = null;
         const deadline = Date.now() + timeoutMs;
         while (Date.now() < deadline) {
             let timer: ReturnType<typeof setTimeout> | undefined;
@@ -104,13 +153,38 @@ export const placeDirectOrder = async (
             }
             if (fr.op === 0x8) break;
             if (fr.op !== 0x2 && fr.op !== 0x0) continue;
-            const ack = parseAck(fr.payload);
-            if (ack) return ack;
+            ack ??= parseAck(fr.payload);
+            const conf = parseConf(fr.payload);
+            if (ack && conf) {
+                ack.internalId = conf.internalId;
+                ack.sequence = conf.sequence;
+            }
+            if (ack && (!needConf || ack.internalId)) return ack;
         }
-        throw new Error("no ack from order ws (order may or may not have been placed; check `deno task account`)");
+        if (ack) return ack; // action accepted; conf may not have arrived
+        throw new Error("no ack from order ws (action may or may not have applied; check `deno task account`)");
     } finally {
         try {
             w.conn.close();
         } catch { /* already closed */ }
     }
 };
+
+export const placeDirectOrder = async (
+    { symbol, side, lot, price, timeoutMs = 8000 }: {
+        symbol: string;
+        side: "BUY" | "SELL";
+        lot: number;
+        price: number;
+        timeoutMs?: number;
+    },
+): Promise<OrderAck> => {
+    const orderbookId = await resolveOrderbookId(symbol);
+    return sendAction(buildOrderFrame({ symbol, side, lot, price, orderbookId }), true, timeoutMs);
+};
+
+export const withdrawDirectOrder = (ref: OrderRef): Promise<OrderAck> =>
+    sendAction(buildWithdrawFrame(ref), false);
+
+export const amendDirectOrder = (ref: OrderRef, newPrice: number): Promise<OrderAck> =>
+    sendAction(buildAmendFrame(ref, newPrice), false);

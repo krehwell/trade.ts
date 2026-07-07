@@ -7,9 +7,12 @@
 //   cancel <uuid>                         delete permanently
 //   dbuy  <sym> <lot> <price>             DIRECT buy (instant, hits book now, via WS)
 //   dsell <sym> <lot> <price>             DIRECT sell (instant)
+//   dwithdraw <marketId> <internalId> <sequence>          cancel a resting direct order
+//   damend    <marketId> <internalId> <sequence> <price>  change a resting order's price
 //
 // buy/sell = auto-order (conditional, fires on a price trigger).
-// dbuy/dsell = direct order (instant fill). Nothing fires unless you pass a command.
+// dbuy/dsell = direct order (instant fill). dwithdraw/damend take the three ids
+// dbuy/dsell print. Nothing fires unless you pass a command.
 import {
     controlAutoOrder,
     createAutoOrder,
@@ -17,7 +20,7 @@ import {
     listAutoOrders,
     statusLabel,
 } from "./data/growinAutoOrder.ts";
-import { placeDirectOrder } from "./data/growinOrderWs.ts";
+import { amendDirectOrder, placeDirectOrder, withdrawDirectOrder } from "./data/growinOrderWs.ts";
 import { fmtPrice } from "./util/print.ts";
 
 const [cmd, ...a] = Deno.args;
@@ -87,9 +90,35 @@ switch (cmd) {
         console.log(
             `${ack.status === "B" ? "BUY" : "SELL"} accepted: ${ack.symbol} ${ack.lot} lot @ ${fmtPrice(ack.price)} | order ${ack.marketOrderId} (#${ack.orderId})`,
         );
+        console.log(`  to amend/withdraw: ${ack.marketOrderId} ${ack.internalId} ${ack.sequence}`);
+        break;
+    }
+    case "dwithdraw": {
+        const [mid, iid, seq] = a;
+        if (!mid || !iid || !seq) {
+            console.error("usage: deno task order dwithdraw <marketId> <internalId> <sequence>");
+            Deno.exit(1);
+        }
+        const ack = await withdrawDirectOrder({ marketOrderId: mid, internalId: Number(iid), sequence: Number(seq) });
+        console.log(`withdraw accepted: ${ack.marketOrderId || mid}`);
+        break;
+    }
+    case "damend": {
+        const [mid, iid, seq, price] = a;
+        if (!mid || !iid || !seq || !price) {
+            console.error("usage: deno task order damend <marketId> <internalId> <sequence> <newPrice>");
+            Deno.exit(1);
+        }
+        const ack = await amendDirectOrder(
+            { marketOrderId: mid, internalId: Number(iid), sequence: Number(seq) },
+            Number(price),
+        );
+        console.log(`amend accepted: new order ${ack.marketOrderId} @ ${fmtPrice(ack.price)}`);
         break;
     }
     default:
-        console.error("commands: list | buy | sell | stop | resume | cancel | dbuy | dsell");
+        console.error(
+            "commands: list | buy | sell | stop | resume | cancel | dbuy | dsell | dwithdraw | damend",
+        );
         Deno.exit(1);
 }
