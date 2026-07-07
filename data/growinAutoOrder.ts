@@ -47,38 +47,49 @@ export const listAutoOrders = async (): Promise<AutoOrder[]> => {
     }));
 };
 
+// Condition = when the order enters the book (UI "When the price is").
+// Execute = at what price once triggered (UI "Execute": Price or Tick).
+export interface Condition {
+    op: "le" | "ge"; // price <= or >= value
+    price: number;
+}
+export interface Execute {
+    mode: "price" | "tick"; // limit at value, or tick offset from the trigger (-20..20)
+    value: number;
+}
+
 export interface CreateAutoOrder {
     symbol: string;
     side: "BUY" | "SELL";
     lot: number;
-    price: number; // limit price (quote_price, order_set_type 2)
+    condition: Condition;
+    execute: Execute;
     validUntil?: string; // default today
-    // optional: after a BUY fills, auto-place a SELL at this price
-    sellAfterBuyPrice?: number;
+    sellAfterBuyPrice?: number; // BUY only: auto-place a sell at this price after fill
 }
 
-// Builds the exact payload shape captured from the web app (order_set_type 2 =
-// absolute quote_price limit). target_price_upper_bound mirrors quote_price:
-// that's the activation level the UI sends for an immediate limit order.
+// Maps the UI's condition + execute onto the captured payload fields.
+//   Condition: BUY triggers on last price (last_price_*_bound), SELL on target
+//     price (target_price_*_bound) — that asymmetry is what the captured frames show.
+//   Execute: Price => order_set_type 2 + quote_price; Tick => order_set_type 1 + tick_size.
+// Some mappings (ge condition, the target mirror for buy) are inferred from a
+// single capture, so createAutoOrder returns the payload to eyeball, and each new
+// variant should be verified against the app on first use.
 export const buildCreatePayload = (o: CreateAutoOrder) => {
     const buy = o.side === "BUY";
     const sellAfter = buy && o.sellAfterBuyPrice != null;
-    // Auto-order = condition (when price hits X, order enters book) + execute.
-    //   BUY : condition "last <= price" (last_price_upper_bound), execute Price
-    //         limit at price (order_set_type 2). API requires a buy condition.
-    //   SELL: condition "price >= price" (target_price_upper_bound), execute Tick
-    //         0 (order_set_type 1) = place at the trigger price. Matches the
-    //         known-good captured sell; tick fills more reliably than a limit.
+    const c = o.condition;
+    const priceMode = o.execute.mode === "price";
     return {
         side: buy ? 1 : 2,
         lot: o.lot,
-        last_price_upper_bound: buy ? o.price : null,
-        last_price_lower_bound: null,
+        last_price_upper_bound: buy && c.op === "le" ? c.price : null,
+        last_price_lower_bound: buy && c.op === "ge" ? c.price : null,
         drop_price_type: 0,
         drop_percentage: null,
         drop_price_from: null,
-        order_set_type: buy ? 2 : 1,
-        tick_size: buy ? null : 0,
+        order_set_type: priceMode ? 2 : 1,
+        tick_size: priceMode ? null : o.execute.value,
         start_from: today(),
         valid_until: o.validUntil ?? today(),
         stock_code: o.symbol.toUpperCase(),
@@ -88,9 +99,9 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
         total_loss: null,
         ratio_profit: null,
         ratio_loss: null,
-        quote_price: buy ? o.price : null,
-        target_price_upper_bound: o.price,
-        target_price_lower_bound: null,
+        quote_price: priceMode ? o.execute.value : null,
+        target_price_upper_bound: buy ? c.price : (c.op === "ge" ? c.price : null),
+        target_price_lower_bound: !buy && c.op === "le" ? c.price : null,
         enable_trailing_stop: false,
         sell_if_drop_percentage: null,
         after_gaining_percentage: null,
