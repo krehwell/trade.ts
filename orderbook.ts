@@ -1,5 +1,5 @@
-// Live bid/offer ladder snapshot for one IDX stock (via Growin).
-//   deno task orderbook <symbol>
+// deno task orderbook <symbol>
+// Live bid/offer ladder snapshot for one IDX stock (Growin). Market hours only.
 import { fetchDepthSnapshot } from "./data/growinDepth.ts";
 
 const sym = Deno.args[0]?.toUpperCase();

@@ -2,10 +2,10 @@
 // This is the ONLY REST order path Growin exposes; plain "direct" orders go over
 // a WebSocket that HAR can't capture. Auto-order covers buy/sell/cancel + auto
 // sell-after-buy, so it's the practical scripting surface.
-import { growinFetch } from "./growinAccount.ts";
+import { growinFetch } from "../net/growinFetch.ts";
 import { today } from "../util/date.ts";
 
-// Resolve symbol -> orderbook_id. Reguler board id, same source growinMeta uses.
+// Reguler board id (not cash board); create/amend need it, not the symbol.
 export const resolveOrderbookId = async (symbol: string): Promise<number> => {
     const d = (await growinFetch(`/marketdata/api/v1/orderbook/${symbol.toUpperCase()}`))?.data;
     const id = d?.id_orderbook_reguler;

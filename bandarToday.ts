@@ -1,6 +1,6 @@
-// What's bandar buying on a given day? One date, all stocks, SM flow ranked.
-// Today is empty until ~6PM WIB (EOD finalization), so pass a past date meanwhile.
-//   deno task bandar-top [date=today] [n=15]
+// deno task bandar-top [date=today] [n=15]
+// One date, all stocks, SM flow ranked. Today is empty until ~18:00 WIB (EOD finalization),
+// so pass a past date meanwhile.
 import { fetchBrokerActivity, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDailyMulti } from "./data/stockbitCandles.ts";
 import { today } from "./util/date.ts";

@@ -1,5 +1,6 @@
 // deno task account [days=30]
 // Snapshot of the Growin account: cash, holdings, live vs done orders, realized P&L.
+// Needs GROWIN_PIN in .env (portfolio/order routes are PIN-gated).
 import {
     fetchCash,
     fetchConsolidated,

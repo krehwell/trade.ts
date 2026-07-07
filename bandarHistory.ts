@@ -1,6 +1,6 @@
-// Day-by-day SM/bandar net flow vs price for one stock. The accumulation timeline
-// the screener's snapshot BANDAR_VALUE can't show. About 13 requests per day, so 20d takes ~1 min.
-//   deno task bandar <symbol> [days=20]
+// deno task bandar <symbol> [days=20]
+// Day-by-day SM/bandar net flow vs price for one stock: the accumulation timeline the
+// screener's snapshot BANDAR_VALUE can't show. ~13 requests/day, so 20d takes ~1 min.
 import { fetchBrokerActivity, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDaily } from "./data/stockbitCandles.ts";
 import { fetchStockMeta, metaWarnings } from "./data/growinMeta.ts";

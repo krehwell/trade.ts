@@ -1,24 +1,10 @@
-/**
- * Premarket Trap Detector.
- *
- * Estimates the chance that today's setup is a bandar distribution trap: smart
- * money flow that looks like accumulation but is really an exit, so a bounce
- * fades and traps anyone who chased it.
- *
- * It leans on shared code for everything market wide.  `detectRegime()` (the same
- * detector daily and picker use) supplies the regime, breadth, and IHSG structure;
- * the only trap specific step is checking whether the top inflow names are already
- * stretched above their MA5 on fading volume, a classic "pump into strength to
- * distribute" tell.
- *
- * Each signal adds weighted points into a 0..100 probability, mapped to a verdict:
- *   < 55    ENTER  normal rules per the regime table apply
- *   55..79  WAIT   trade small and late, hard +2% cap
- *   >= 80   SKIP   stand aside, the move is a trap
- *
- * Usage: deno task trap
- */
-
+// deno task trap
+// Premarket trap probability 0-100: SM flow that looks like accumulation but is really an exit,
+// so a bounce fades and traps whoever chased. Shares detectRegime() + the top-inflows list with
+// daily/picker; the trap-specific tell is top inflows stretched above MA5 on fading volume.
+//   < 55    ENTER  normal regime-table rules apply
+//   55..79  WAIT   trade small and late, hard +2% cap
+//   >= 80   SKIP   stand aside, the move is a trap
 import { detectRegime } from "./market/marketRegime.ts";
 import { fetchCandles } from "./data/stockbitCandles.ts";
 import { fetchBandarDeltas } from "./data/fetchScreener.ts";

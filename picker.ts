@@ -1,14 +1,11 @@
-/**
- * Improved daily pick analyzer.
- *
- * Lessons from backtesting (Apr 21 to 23):
- *   Winners were momentum runners that KEPT running (COAL +34%, BDMN +25%, BAIK +20%).
- *   "Overextended" stocks continued, so penalizing them was wrong.
- *   Volume spikes marked CONTINUATION not exhaustion when paired with bandar accumulation.
- *   Conservative "safe" picks (LPPF, DMAS, OMED) went nowhere (+0% avg).
- *   The edge: bandar accumulation + volume breakout + price momentum in small/mid caps.
- */
-
+// deno task pick
+// Gated scoring pipeline: regime gate → foundation → confirmations → contradictions → grade.
+// Exits on SIT_OUT.
+//
+// Why the scoring leans into momentum (backtest Apr 21-23): winners were runners that KEPT
+// running (COAL +34%, BDMN +25%), so penalizing "overextended" was wrong; volume spikes marked
+// continuation not exhaustion when paired with bandar accumulation; "safe" picks averaged +0%.
+// Edge = bandar accumulation + volume breakout + price momentum in small/mid caps.
 import { fetchScreener, type ScreenerStock } from "./data/fetchScreener.ts";
 import { fetchBrokerActivity, fetchBrokerActivityMultiTF, RETAIL_BROKERS, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDailyMulti as fetchYahooDailyMulti } from "./data/stockbitCandles.ts";

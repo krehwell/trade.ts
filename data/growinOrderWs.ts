@@ -3,7 +3,7 @@
 // Unlike auto-order (conditional), this hits the book immediately.
 // Wire format reverse-engineered from captured frames (see growin-account-api memory).
 import { resolveOrderbookId } from "./growinAutoOrder.ts";
-import { growinAuthCookie } from "./growinAccount.ts";
+import { growinAuthCookie } from "../net/growinFetch.ts";
 import { readFrame, writeFrame, wsConnect } from "../net/growinWs.ts";
 import { fstr, get, len, parse, str, vint } from "../util/protobuf.ts";
 

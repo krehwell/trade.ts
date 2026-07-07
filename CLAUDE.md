@@ -94,7 +94,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 13. TP hit = no further commentary. Trade closed.
 14. Picker pick not in top 50 inflows → fetch bandar numbers before recommending.
 15. One regime detector: `daily`, `picker`, `trap` all use `detectRegime()`. Never re-derive.
-16. One-day flow spike ≠ accumulation. Never label a single big SM/foreign day "accumulation" without the 10d timeline (see Flow consistency). A one-day event buy is a conditional setup, downgrade the conviction and say so.
+16. One-day flow spike ≠ accumulation. Never label a single big SM/foreign day "accumulation" without the 10d timeline (accumulation framework above). A one-day event buy is a conditional setup, downgrade the conviction and say so.
 
 # Approach
 
@@ -136,6 +136,12 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - REST `/marketdata/api/v1/orderbook/{SYM}` = metadata only, no depth. Useful: `is_uma`, `is_suspended`, `corporate_action` (`XD` = ex-div), `limit_high`/`limit_low` (ARA/ARB)
 - No historical orderbook. All snapshot/replay/by-date guesses 404, `?date=` ignored. Want a record → record it yourself
 
+### Growin account + orders
+- Account/portfolio/order reads (`growinAccount.ts`) live behind `/protected/` routes that need a PIN-verified session: `pin-login` with `GROWIN_PIN`, then carry `PIN_ACCESS_TOKEN`. Base login alone = 401. Auth handled by `net/growinFetch.ts`
+- Two order paths: **auto-order** (`growinAutoOrder.ts`, REST) is CONDITIONAL, it waits for a price trigger and never fills instantly, even if the condition is already true. **Direct order** (`growinOrderWs.ts`, protobuf WS) is the only INSTANT path. Never expect an auto-order to market-fill now
+- Direct order can't be captured from HAR (WS frames aren't exported). Frames were hand-decoded from DevTools; encoders are byte-verified against captures. Amend/withdraw need `internalId`+`sequence` from the place confirmation, so they only work on script-placed orders
+- Growin is single-session: concurrent logins kick each other out. `growinFetch` dedupes the login promise; don't fan out logins
+
 ### Foreign flow (IDX)
 - `idx.co.id/primary/TradingSummary/GetStockSummary?date=YYYYMMDD`: token-free, per-stock ForeignBuy/Sell (shares). Net value approximated × close
 - Needs browser headers AND Deno fetch. curl gets Cloudflare-blocked (TLS fingerprint). Datacenter IPs (VPS) are blocked entirely
@@ -170,6 +176,8 @@ Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 - `bandarToday.ts` (`deno task bandar-top [date=today] [n=15]`): one day, top/bottom n by SM flow. Empty until ~18:00 WIB
 - `orderbook.ts` (`deno task orderbook <symbol>`): live ladder: 10 levels, inside market, imbalance. Market hours only
 - `trapCheck.ts` (`deno task trap`): premarket trap probability 0-100 (shared regime + top inflows stretched above MA5 on fading vol). <55 ENTER, 55-79 WAIT (small, late, +2% cap), ≥80 SKIP
+- `account.ts` (`deno task account [days=30]`): Growin account snapshot: cash/settlement, holdings, live vs done orders, realized P&L. Needs `GROWIN_PIN` in `.env`
+- `order.ts` (`deno task order <cmd>`): place/manage Growin orders. `buy`/`sell` = auto-order (conditional, fires on a price trigger, cancel via `cancel`). `dbuy`/`dsell` = direct order (instant fill over WS). `dwithdraw`/`damend` = pull/reprice a resting direct order. Nothing fires without a command
 - `refresh.ts` (`deno task refresh`): renew token pair, rewrite `stockbitAuth.ts`
 
 ## market
@@ -185,17 +193,23 @@ Entry points at root; rest grouped into `market/` `data/` `net/` `util/`.
 - `fetchForeignFlow.ts`: IDX foreign flow per stock: `fetchForeignFlow({date})`, `fetchLatestForeignFlow()` (walks back to last trading day). Used by `daily.ts` for the bandar-vs-foreign cross-ref
 - `growinDepth.ts`: `fetchDepthSnapshot({symbol})`, one depth frame over protobuf WS, then close
 - `growinMeta.ts`: `fetchStockMeta({symbol})`, corporate action + UMA + suspension flags from Growin REST. Picker uses it to veto. Cookie cached per run. "no action" = `"--"`, ex-dates start with `X`
+- `growinAccount.ts`: portfolio/orders/pnl REST reads: `fetchHoldings`, `fetchConsolidated`, `fetchCash`, `fetchOrders`, `fetchRealizedPnl`. Authed via `net/growinFetch.ts` (PIN cookie)
+- `growinAutoOrder.ts`: auto-order (conditional order) REST. `resolveOrderbookId`, `createAutoOrder`, `listAutoOrders`, `controlAutoOrder` (stop/resume), `deleteAutoOrder`. Waits for a price trigger, never fires instantly
+- `growinOrderWs.ts`: direct order (instant) over the order WebSocket. `placeDirectOrder`, `withdrawDirectOrder`, `amendDirectOrder`, frame builders. Protobuf send frames reverse-engineered from captures; amend/withdraw need `internalId`+`sequence` from the place confirmation
 
 ## net
 - `stockbitFetch.ts`: `fetchGET`/`fetchPOST`, auth baked in, auto-refresh on 401
 - `warpClient.ts`: shared HTTP client, SOCKS line commented locally, uncomment on VPS
 - `refreshToken.ts`: `refreshAccessToken`, `persistTokens`
 - `stockbitAuth.ts`: `TOKEN` (~24h), `REFRESH_TOKEN` (~7d)
-- `growinAuth.ts`: `getGrowinCookie()`, only used by `growinDepth.ts`
+- `growinAuth.ts`: `getGrowinCookie()` (base login) + shared `GROWIN_HEADERS` / `GROWIN_UA`
+- `growinFetch.ts`: authed Growin REST (`growinFetch`, `growinAuthCookie`). Adds the PIN step on top of `getGrowinCookie`, dedupes the single-session login
+- `growinWs.ts`: manual HTTP/1.1 WebSocket over TLS (`wsConnect`, `writeFrame`, `readFrame`). Shared by `growinDepth` (marketws) and `growinOrderWs` (order)
 
 ## util
 - `date.ts`: `fmt`, `today`, `daysAgo`, `subDays`, `parseTFDays`
 - `print.ts`: terminal formatting
+- `protobuf.ts`: minimal protobuf wire reader/writer, shared by `growinDepth` + `growinOrderWs`
 
 # Scoring (picker.ts)
 

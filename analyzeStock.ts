@@ -1,11 +1,6 @@
-/**
- * Per stock technical analysis utility.
- * Pulls 60d candles, computes: MA distances, volume ratios, price structure,
- * drawdown, range position, volume trend, red flags.
- *
- * Usage: deno task analyze SYMBOL
- *   (or: deno run --unstable-http --allow-net analyzeStock.ts SYMBOL)
- */
+// deno task analyze <symbol>
+// Per-stock TA as JSON: MA distances, vol ratios, price structure, drawdown, range position,
+// volume trend, red flags. Pulls 60d candles.
 import { fetchCandles } from "./data/stockbitCandles.ts";
 import { candleStats, distPct, sma } from "./market/indicators.ts";
 

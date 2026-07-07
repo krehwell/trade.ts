@@ -1,10 +1,6 @@
-/**
- * Daily analysis script. Run once per session to get all the data needed.
- * Outputs: IHSG regime, full screener scan with daily deltas, candles for top stocks.
- *
- * Usage: deno task daily
- */
-
+// deno task daily
+// Run first each session: IHSG regime, full screener scan with daily deltas, IDX foreign
+// flow cross-ref, candles for the top flow names.
 import { fetchCandles } from "./data/stockbitCandles.ts";
 import { fetchBandarDeltas, fetchScreener } from "./data/fetchScreener.ts";
 import { fetchLatestForeignFlow } from "./data/fetchForeignFlow.ts";

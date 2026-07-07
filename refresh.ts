@@ -1,7 +1,9 @@
+// deno task refresh
+// Refresh the Stockbit access token and write it back to net/stockbitAuth.ts. Single-use: the
+// refresh rotates the session, so don't run two tools on an expired token (double-refresh
+// invalidates both).
 import { persistTokens, refreshAccessToken } from "./net/refreshToken.ts";
 
-// Refresh the Stockbit access token and write it back to net/stockbitAuth.ts.
-// Run when the token has expired (or proactively): `deno task refresh`
 const t = await refreshAccessToken();
 await persistTokens({ token: t.token, refreshToken: t.refreshToken });
 
