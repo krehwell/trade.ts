@@ -26,6 +26,7 @@ const ensureFreshAuth = (): Promise<void> => {
     return refreshing;
 };
 
+// deno-lint-ignore no-explicit-any
 export const fetchGET = async <T = any>({
     path,
     params,
@@ -51,6 +52,7 @@ export const fetchGET = async <T = any>({
     return res.json();
 };
 
+// deno-lint-ignore no-explicit-any
 export const fetchPOST = async <T = any>({
     path,
     body,

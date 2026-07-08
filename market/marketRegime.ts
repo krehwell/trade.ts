@@ -1,5 +1,4 @@
 import { fetchDaily as fetchYahooDaily } from "../data/stockbitCandles.ts";
-import { type YahooCandle } from "../data/yahooCandles.ts";
 import { avgVolume, distPct, maSlope, pctChange, sma } from "./indicators.ts";
 import { fetchScreener } from "../data/fetchScreener.ts";
 import { ITEMS } from "../data/screenerItems.ts";

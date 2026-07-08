@@ -6,10 +6,9 @@
 // running (COAL +34%, BDMN +25%), so penalizing "overextended" was wrong, and volume spikes marked
 // continuation not exhaustion when paired with bandar accumulation, while "safe" picks averaged +0%.
 // Edge = bandar accumulation + volume breakout + price momentum in small/mid caps.
-import { fetchScreener, type ScreenerStock } from "./data/fetchScreener.ts";
+import { type ScreenerStock } from "./data/fetchScreener.ts";
 import { fetchBrokerActivity, fetchBrokerActivityMultiTF, RETAIL_BROKERS, SM_BROKERS } from "./data/fetchBrokerActivity.ts";
 import { fetchDailyMulti as fetchYahooDailyMulti } from "./data/stockbitCandles.ts";
-import { type YahooCandle } from "./data/yahooCandles.ts";
 import { fetchPOST } from "./net/stockbitFetch.ts";
 import { ITEMS } from "./data/screenerItems.ts";
 import { daysAgo, fmt, subDays, today } from "./util/date.ts";
@@ -45,6 +44,7 @@ const fetchScreenerWithColumns = async ({ filters, columns, orderCol, orderType 
             },
         });
         const d = json.data;
+        // deno-lint-ignore no-explicit-any
         const stocks: ScreenerStock[] = (d.calcs ?? []).map((c: any) => {
             const results: Record<string, number> = {};
             for (const r of c.results) results[r.id] = Number(r.raw);

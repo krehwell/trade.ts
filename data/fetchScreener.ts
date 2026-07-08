@@ -26,7 +26,6 @@ export interface ScreenerResult {
 export const fetchScreener = async ({
     filters = [],
     page = 1,
-    perPage = 25,
     universe = "IHSG",
     orderCol,
     orderType = "asc",
@@ -66,6 +65,7 @@ export const fetchScreener = async ({
 
     const d = json.data;
 
+    // deno-lint-ignore no-explicit-any
     const stocks: ScreenerStock[] = (d.calcs ?? []).map((c: any) => {
         const results: Record<string, number> = {};
         for (const r of c.results) results[r.id] = Number(r.raw);
