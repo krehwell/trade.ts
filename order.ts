@@ -2,7 +2,7 @@
 //   list                                  show all auto-orders
 //   buy  <sym> <lot> <cond> <exec> [sell=<price>]   conditional buy
 //   sell <sym> <lot> <cond> <exec>                  conditional sell
-//        <cond> = le=<price> | ge=<price> | drop=<pct> (buy) | tp=<pct> | sl=<pct> | trail=<gain%>,<drop%> (sell)
+//        <cond> = le=/ge=<price> | drop=<pct> (buy) | tp=/sl=<pct> | tpRp=/slRp=<rupiah> | trail=<gain%>,<drop%> (sell)
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
 //        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
 //   stop <uuid>                           pause (resumable)
@@ -63,6 +63,8 @@ switch (cmd) {
         let dropPct: number | undefined;
         let tpPct: number | undefined;
         let slPct: number | undefined;
+        let tpRp: number | undefined;
+        let slRp: number | undefined;
         let trailGain: number | undefined;
         let trailDrop: number | undefined;
         let sellAt: number | undefined;
@@ -73,6 +75,8 @@ switch (cmd) {
             else if ((m = tok.match(/^drop=(\d+(?:\.\d+)?)$/))) dropPct = Number(m[1]); // buy on -drop% from high
             else if ((m = tok.match(/^tp=(\d+(?:\.\d+)?)$/))) tpPct = Number(m[1]); // take profit %
             else if ((m = tok.match(/^sl=(\d+(?:\.\d+)?)$/))) slPct = Number(m[1]); // stop loss %
+            else if ((m = tok.match(/^tpRp=(\d+)$/))) tpRp = Number(m[1]); // take profit rupiah
+            else if ((m = tok.match(/^slRp=(\d+)$/))) slRp = Number(m[1]); // stop loss rupiah
             else if ((m = tok.match(/^trail=(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/))) { trailGain = Number(m[1]); trailDrop = Number(m[2]); } // gain%,drop%
             else if ((m = tok.match(/^at=(\d+(?:\.\d+)?)$/))) execute = { mode: "price", value: Number(m[1]) };
             else if ((m = tok.match(/^tick=(-?\d+)$/))) execute = { mode: "tick", value: Number(m[1]) };
@@ -85,9 +89,9 @@ switch (cmd) {
                 } else sellAt = Number(tok);
             } else usage();
         }
-        const sellOnly = tpPct != null || slPct != null || trailGain != null;
+        const sellOnly = tpPct != null || slPct != null || tpRp != null || slRp != null || trailGain != null;
         if (sellOnly && side === "BUY") {
-            console.error("tp/sl/trail are sell-only (they act on a held position)");
+            console.error("tp/sl/tpRp/slRp/trail are sell-only (they act on a held position)");
             Deno.exit(1);
         }
         if (dropPct != null && side === "SELL") {
@@ -103,6 +107,8 @@ switch (cmd) {
             dropPct,
             tpPct,
             slPct,
+            tpRp,
+            slRp,
             trailGain,
             trailDrop,
             execute: execute!,

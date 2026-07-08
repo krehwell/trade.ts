@@ -63,6 +63,8 @@ export interface CreateAutoOrder {
     dropPct?: number; // BUY: drop_percentage, fire when price drops dropPct% from its high
     tpPct?: number; // SELL: ratio_profit, fire when profit >= tpPct% of avg price
     slPct?: number; // SELL: ratio_loss, fire when loss >= slPct% of avg price
+    tpRp?: number; // SELL: total_profit, fire when profit >= tpRp rupiah
+    slRp?: number; // SELL: total_loss, fire when loss >= slRp rupiah
     trailGain?: number; // SELL: after_gaining_percentage, trailing arms after +gain%
     trailDrop?: number; // SELL: sell_if_drop_percentage, then sell if it drops drop%
     execute: Execute;
@@ -96,8 +98,8 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
         stock_code: o.symbol.toUpperCase(),
         orderbook_id: 0, // filled by createAutoOrder
         price: null,
-        total_profit: null,
-        total_loss: null,
+        total_profit: o.tpRp ?? null, // absolute rupiah profit trigger
+        total_loss: o.slRp ?? null, // absolute rupiah loss trigger
         // Ratio %: raw percent of avg price (7 = 7%), verified from a capture.
         ratio_profit: o.tpPct ?? null,
         ratio_loss: o.slPct ?? null,
