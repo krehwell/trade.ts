@@ -62,6 +62,8 @@ export interface CreateAutoOrder {
     condition?: Condition; // price trigger, optional when tp/sl given
     tpPct?: number; // SELL: ratio_profit, fire when profit >= tpPct% of avg price
     slPct?: number; // SELL: ratio_loss, fire when loss >= slPct% of avg price
+    trailGain?: number; // SELL: after_gaining_percentage, trailing arms after +gain%
+    trailDrop?: number; // SELL: sell_if_drop_percentage, then sell if it drops drop%
     execute: Execute;
     validUntil?: string; // default today
     sellAfterBuyPrice?: number; // BUY only: auto-place a sell at this price after fill
@@ -100,10 +102,12 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
         quote_price: priceMode ? o.execute.value : null,
         target_price_upper_bound: !buy && c?.op === "ge" ? c.price : null,
         target_price_lower_bound: !buy && c?.op === "le" ? c.price : null,
-        enable_trailing_stop: false,
-        sell_if_drop_percentage: null,
-        after_gaining_percentage: null,
-        trailing_stop_type: 0,
+        // Trailing stop: arm after +trailGain%, then sell if it drops trailDrop%.
+        // trailing_stop_type 1 = Last Price (the reference the drop is measured from).
+        enable_trailing_stop: o.trailGain != null && o.trailDrop != null,
+        sell_if_drop_percentage: o.trailDrop ?? null,
+        after_gaining_percentage: o.trailGain ?? null,
+        trailing_stop_type: o.trailGain != null ? 1 : 0,
         enable_sell_after_buy: sellAfter,
         sell_after_buy_order_set: sellAfter ? 2 : 0,
         sell_after_buy_tick_size: null,

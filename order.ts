@@ -2,7 +2,7 @@
 //   list                                  show all auto-orders
 //   buy  <sym> <lot> <cond> <exec> [sell=<price>]   conditional buy
 //   sell <sym> <lot> <cond> <exec>                  conditional sell
-//        <cond> = le=<price> | ge=<price> | tp=<pct> | sl=<pct>   (price level, or sell-only take-profit / stop-loss % of avg)
+//        <cond> = le=<price> | ge=<price> | tp=<pct> | sl=<pct> | trail=<gain%>,<drop%>   (price, or sell-only tp/sl/trailing)
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
 //        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
 //   stop <uuid>                           pause (resumable)
@@ -62,6 +62,8 @@ switch (cmd) {
         let execute: Execute | undefined;
         let tpPct: number | undefined;
         let slPct: number | undefined;
+        let trailGain: number | undefined;
+        let trailDrop: number | undefined;
         let sellAt: number | undefined;
         for (const tok of rest) {
             let m: RegExpMatchArray | null;
@@ -69,6 +71,7 @@ switch (cmd) {
             else if ((m = tok.match(/^ge=(\d+(?:\.\d+)?)$/))) condition = { op: "ge", price: Number(m[1]) };
             else if ((m = tok.match(/^tp=(\d+(?:\.\d+)?)$/))) tpPct = Number(m[1]); // take profit %
             else if ((m = tok.match(/^sl=(\d+(?:\.\d+)?)$/))) slPct = Number(m[1]); // stop loss %
+            else if ((m = tok.match(/^trail=(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/))) { trailGain = Number(m[1]); trailDrop = Number(m[2]); } // gain%,drop%
             else if ((m = tok.match(/^at=(\d+(?:\.\d+)?)$/))) execute = { mode: "price", value: Number(m[1]) };
             else if ((m = tok.match(/^tick=(-?\d+)$/))) execute = { mode: "tick", value: Number(m[1]) };
             else if ((m = tok.match(/^sell=(\d+(?:\.\d+)?)$/))) sellAt = Number(m[1]);
@@ -80,11 +83,12 @@ switch (cmd) {
                 } else sellAt = Number(tok);
             } else usage();
         }
-        if ((tpPct != null || slPct != null) && side === "BUY") {
-            console.error("tp/sl are sell-only (profit/loss on a held position)");
+        const sellOnly = tpPct != null || slPct != null || trailGain != null;
+        if (sellOnly && side === "BUY") {
+            console.error("tp/sl/trail are sell-only (they act on a held position)");
             Deno.exit(1);
         }
-        if ((!condition && tpPct == null && slPct == null) || !execute) usage();
+        if ((!condition && !sellOnly) || !execute) usage();
         const { uuid, payload } = await createAutoOrder({
             symbol: sym,
             side,
@@ -92,6 +96,8 @@ switch (cmd) {
             condition,
             tpPct,
             slPct,
+            trailGain,
+            trailDrop,
             execute: execute!,
             sellAfterBuyPrice: sellAt,
         });
