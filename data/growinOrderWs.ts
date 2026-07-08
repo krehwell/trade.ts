@@ -170,6 +170,40 @@ const sendAction = async (frame: Uint8Array, needConf: boolean, timeoutMs = 8000
     }
 };
 
+// True when an order-list row is the order we just placed. Match on symbol +
+// side + price (not lot, to survive a partial fill) and skip rejects. Field
+// names guarded (symbol/stock_code) since the v2 list shape is only partly known.
+export const matchesPlacedOrder = (row: Record<string, unknown>, o: DirectOrder): boolean =>
+    (row.symbol ?? row.stock_code) === o.symbol.toUpperCase() &&
+    String(row.side) === (o.side === "BUY" ? "1" : "2") &&
+    Number(row.price) === o.price &&
+    row.order_status !== "REJECTED";
+
+// The order WS is single-session with the app, so a place with the app open
+// often gets no ack even though the order landed. Recover by finding it in the
+// order-list (newest first) instead of failing.
+// ponytail: takes the top matching row, right for a just-placed order; a stale
+// identical-price order could alias. Upgrade: match entry_time if it bites.
+const recoverPlaceAck = async (o: DirectOrder, attempts = 4): Promise<OrderAck | null> => {
+    for (let i = 0; i < attempts; i++) {
+        await new Promise((r) => setTimeout(r, 700));
+        const j = await growinFetch("/order/api/v2/protected/order-list?page=1");
+        const row = (j?.data ?? []).find((x: Record<string, unknown>) => matchesPlacedOrder(x, o));
+        if (!row) continue;
+        return {
+            orderId: Number(row.transaction_id) || 0,
+            status: o.side === "BUY" ? "B" : "S",
+            symbol: o.symbol.toUpperCase(),
+            lot: o.lot,
+            price: o.price,
+            marketOrderId: row.market_client_order_id as string,
+            internalId: Number(row.user_order_id) || 0,
+            sequence: Number(row.market_order_id) || 0,
+        };
+    }
+    return null;
+};
+
 export const placeDirectOrder = async (
     { symbol, side, lot, price, timeoutMs = 8000 }: {
         symbol: string;
@@ -180,7 +214,14 @@ export const placeDirectOrder = async (
     },
 ): Promise<OrderAck> => {
     const orderbookId = await resolveOrderbookId(symbol);
-    return sendAction(buildOrderFrame({ symbol, side, lot, price, orderbookId }), true, timeoutMs);
+    const order: DirectOrder = { symbol, side, lot, price, orderbookId };
+    try {
+        return await sendAction(buildOrderFrame(order), true, timeoutMs);
+    } catch (e) {
+        const recovered = await recoverPlaceAck(order);
+        if (recovered) return recovered;
+        throw e;
+    }
 };
 
 // The place ack carries internalId + sequence, but the order-list REST also has
@@ -198,3 +239,14 @@ export const withdrawDirectOrder = (ref: OrderRef): Promise<OrderAck> =>
 
 export const amendDirectOrder = (ref: OrderRef, newPrice: number): Promise<OrderAck> =>
     sendAction(buildAmendFrame(ref, newPrice), false);
+
+if (import.meta.main) {
+    const o: DirectOrder = { symbol: "bbca", side: "BUY", lot: 1, price: 5000, orderbookId: 1 };
+    const hit = { symbol: "BBCA", side: "1", price: 5000, order_status: "OPEN" };
+    console.assert(matchesPlacedOrder(hit, o), "should match");
+    console.assert(!matchesPlacedOrder({ ...hit, side: "2" }, o), "side mismatch");
+    console.assert(!matchesPlacedOrder({ ...hit, price: 4999 }, o), "price mismatch");
+    console.assert(!matchesPlacedOrder({ ...hit, order_status: "REJECTED" }, o), "rejected");
+    console.assert(matchesPlacedOrder({ stock_code: "BBCA", side: "1", price: 5000 }, o), "stock_code fallback");
+    console.log("matchesPlacedOrder ok");
+}
