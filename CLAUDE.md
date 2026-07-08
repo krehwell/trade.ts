@@ -189,7 +189,7 @@ Entry points at root, with the rest grouped into `market/` `data/` `net/` `util/
 - `orderbook.ts` (`deno task orderbook <symbol>`): live ladder: 10 levels, inside market, imbalance. Market hours only
 - `trapCheck.ts` (`deno task trap`): premarket trap probability 0-100 (shared regime + top inflows stretched above MA5 on fading vol). <55 ENTER, 55-79 WAIT (small, late, +2% cap), ≥80 SKIP
 - `account.ts` (`deno task account [days=30]`): Growin account snapshot: cash/settlement, holdings, live vs done orders, realized P&L. Needs `GROWIN_PIN` in `.env`
-- `order.ts` (`deno task order <cmd>`): place/manage Growin orders. `buy`/`sell <sym> <lot> <cond> <exec>` = auto-order (conditional), where `<cond>` is `le=/ge=<price>`, buy-only `drop=<pct>`, or sell-only `tp=/sl=<pct>` / `tpRp=/slRp=<rupiah>` / `trail=<gain%>,<drop%>`, and `<exec>` is `at=<price>` or `tick=<n>` (shorthand: a bare price). `stop`/`resume`/`cancel` manage it. `dbuy`/`dsell` = direct order (instant fill over WS), `dwithdraw`/`damend` pull or reprice a resting one. Nothing fires without a command
+- `order.ts` (`deno task order <cmd>`): place/manage Growin orders. `buy`/`sell <sym> <lot> <cond> <exec>` = auto-order (conditional), where `<cond>` is `le=/ge=<price>`, buy-only `drop=<pct>`, or sell-only `tp=/sl=<pct>` / `tpRp=/slRp=<rupiah>` / `trail=<gain%>,<drop%>`, and `<exec>` is `at=<price>` or `tick=<n>` (shorthand: a bare price). `until=<YYYY-MM-DD>` or `until=+<days>` extends validity (default: expires today). `stop`/`resume`/`cancel` manage it. `dbuy`/`dsell` = direct order (instant fill over WS), `dwithdraw`/`damend` pull or reprice a resting one. Nothing fires without a command
 - `refresh.ts` (`deno task refresh`): renew token pair, rewrite `stockbitAuth.ts`
 
 ## market

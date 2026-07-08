@@ -1,9 +1,10 @@
 // deno task order <cmd>
 //   list                                  show all auto-orders
-//   buy  <sym> <lot> <cond> <exec> [sell=<price>]   conditional buy
-//   sell <sym> <lot> <cond> <exec>                  conditional sell
+//   buy  <sym> <lot> <cond> <exec> [until=..] [sell=<price>]   conditional buy
+//   sell <sym> <lot> <cond> <exec> [until=..]                  conditional sell
 //        <cond> = le=/ge=<price> | drop=<pct> (buy) | tp=/sl=<pct> | tpRp=/slRp=<rupiah> | trail=<gain%>,<drop%> (sell)
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
+//        until=<YYYY-MM-DD> | until=+<days>  validity (default: expires today)
 //        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
 //   stop <uuid>                           pause (resumable)
 //   resume <uuid>                         resume a paused order
@@ -27,6 +28,7 @@ import {
     listAutoOrders,
 } from "./data/growinAutoOrder.ts";
 import { amendDirectOrder, placeDirectOrder, resolveOrderRef, withdrawDirectOrder } from "./data/growinOrderWs.ts";
+import { daysAgo } from "./util/date.ts";
 import { fmtPrice } from "./util/print.ts";
 
 const [cmd, ...a] = Deno.args;
@@ -53,7 +55,7 @@ switch (cmd) {
         const [sym, lot, ...rest] = a;
         const usage = () => {
             console.error(`usage: deno task order ${cmd} <sym> <lot> <cond> <exec> [sell=<price>]`);
-            console.error(`  <cond> le=<price>|ge=<price>|tp=<pct>|sl=<pct>   <exec> at=<price>|tick=<n>   shorthand: <sym> <lot> <price>`);
+            console.error(`  <cond> le=<price>|ge=<price>|tp=<pct>|sl=<pct>   <exec> at=<price>|tick=<n>   until=<date>|+<days>   shorthand: <sym> <lot> <price>`);
             Deno.exit(1);
         };
         if (!sym || !lot) usage();
@@ -68,6 +70,7 @@ switch (cmd) {
         let trailGain: number | undefined;
         let trailDrop: number | undefined;
         let sellAt: number | undefined;
+        let validUntil: string | undefined;
         for (const tok of rest) {
             let m: RegExpMatchArray | null;
             if ((m = tok.match(/^le=(\d+(?:\.\d+)?)$/))) condition = { op: "le", price: Number(m[1]) };
@@ -81,6 +84,8 @@ switch (cmd) {
             else if ((m = tok.match(/^at=(\d+(?:\.\d+)?)$/))) execute = { mode: "price", value: Number(m[1]) };
             else if ((m = tok.match(/^tick=(-?\d+)$/))) execute = { mode: "tick", value: Number(m[1]) };
             else if ((m = tok.match(/^sell=(\d+(?:\.\d+)?)$/))) sellAt = Number(m[1]);
+            else if ((m = tok.match(/^until=(\d{4}-\d{2}-\d{2})$/))) validUntil = m[1]; // absolute date
+            else if ((m = tok.match(/^until=\+(\d+)$/))) validUntil = daysAgo(-Number(m[1])); // +N days from today
             else if (/^\d+(?:\.\d+)?$/.test(tok)) {
                 if (!condition && !execute) {
                     const p = Number(tok);
@@ -112,6 +117,7 @@ switch (cmd) {
             trailGain,
             trailDrop,
             execute: execute!,
+            validUntil,
             sellAfterBuyPrice: sellAt,
         });
         console.log("sent payload:", JSON.stringify(payload));

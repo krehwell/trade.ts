@@ -44,12 +44,13 @@ deno task refresh                          renew the Stockbit token
 deno task order list                          all auto-orders (with pause/play state)
 deno task order buy  <sym> <lot> <cond> <exec>   e.g. buy GOTO 5 ge=2000 at=2400
 deno task order sell <sym> <lot> <cond> <exec>   cond = le=<price>|ge=<price>, exec = at=<price>|tick=<n>
+                     add until=<YYYY-MM-DD> or until=+<days> to keep it valid past today
 deno task order dbuy <sym> <lot> <price>      instant buy over WS
 deno task order cancel <uuid>                 delete an auto-order
 deno task order dwithdraw <marketId> <internalId> <sequence>
 ```
 
-Direct orders share Growin's single session with the app, so run them with the app closed or the ack may not return (the order still lands, but withdraw/amend ids are lost).
+Direct orders share Growin's single session with the app. With the app open the ack may not return, but the order still lands and the CLI recovers it from the order-list, so prefer the app closed anyway.
 
 ## Layout
 
