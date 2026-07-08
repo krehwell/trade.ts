@@ -138,9 +138,13 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 
 ### Growin account + orders
 - Account/portfolio/order reads (`growinAccount.ts`) live behind `/protected/` routes that need a PIN-verified session: `pin-login` with `GROWIN_PIN`, then carry `PIN_ACCESS_TOKEN`. Base login alone = 401. Auth handled by `net/growinFetch.ts`
-- Two order paths: **auto-order** (`growinAutoOrder.ts`, REST) is CONDITIONAL, it waits for a price trigger and never fills instantly, even if the condition is already true. **Direct order** (`growinOrderWs.ts`, protobuf WS) is the only INSTANT path. Never expect an auto-order to market-fill now
-- Direct order can't be captured from HAR (WS frames aren't exported). Frames were hand-decoded from DevTools, and the encoders are byte-verified against captures. Amend/withdraw need `internalId`+`sequence` from the place confirmation, so they only work on script-placed orders
+- Two order paths: **auto-order** (`growinAutoOrder.ts`, REST) is CONDITIONAL, it fires only when the last price CROSSES the trigger (a condition that is already true does not fire, it needs a fresh crossing). **Direct order** (`growinOrderWs.ts`, protobuf WS) is the only INSTANT path
+- **Auto-order is created PAUSED (`control_state` 1) and does nothing until played (`control_state` 2).** `createAutoOrder` plays it automatically. The 1=pause / 2=play inversion is the trap that made every order sit idle, so use the `CONTROL` enum, never a raw number
+- Condition field names are inverted vs their meaning: `*_upper_bound` = "Price >= X", `*_lower_bound` = "Price <= X". BUY triggers on `last_price_*_bound`, SELL on `target_price_*_bound`. The order's `strategies` string (e.g. "If Price >= 63") is ground truth, read it back to check
+- Direct order WS shares Growin's single session with the app. With the app open the order frame still lands but the ack often never returns, so `placeDirectOrder` throws "no ack" even though the order placed. Don't run script direct orders while the app is open
+- Amend/withdraw need `internalId`+`sequence` from the place ack. The order WS pushes no open-orders snapshot on connect, so those ids exist only for orders the script placed with a good ack. App-placed or no-ack orders can only be cancelled in the app
 - Growin is single-session: concurrent logins kick each other out. `growinFetch` dedupes the login promise, so don't fan out logins
+- Gocap floor stocks (price stuck at 50, e.g. GOTO) show a huge ask wall and no bid: you can buy but cannot sell until a bid appears
 
 ### Foreign flow (IDX)
 - `idx.co.id/primary/TradingSummary/GetStockSummary?date=YYYYMMDD`: token-free, per-stock ForeignBuy/Sell (shares). Net value approximated × close
@@ -177,7 +181,7 @@ Entry points at root, with the rest grouped into `market/` `data/` `net/` `util/
 - `orderbook.ts` (`deno task orderbook <symbol>`): live ladder: 10 levels, inside market, imbalance. Market hours only
 - `trapCheck.ts` (`deno task trap`): premarket trap probability 0-100 (shared regime + top inflows stretched above MA5 on fading vol). <55 ENTER, 55-79 WAIT (small, late, +2% cap), ≥80 SKIP
 - `account.ts` (`deno task account [days=30]`): Growin account snapshot: cash/settlement, holdings, live vs done orders, realized P&L. Needs `GROWIN_PIN` in `.env`
-- `order.ts` (`deno task order <cmd>`): place/manage Growin orders. `buy`/`sell` = auto-order (conditional, fires on a price trigger, cancel via `cancel`). `dbuy`/`dsell` = direct order (instant fill over WS). `dwithdraw`/`damend` = pull/reprice a resting direct order. Nothing fires without a command
+- `order.ts` (`deno task order <cmd>`): place/manage Growin orders. `buy`/`sell <sym> <lot> <cond> <exec>` = auto-order (conditional), where `<cond>` is `le=<price>` or `ge=<price>` and `<exec>` is `at=<price>` or `tick=<n>` (shorthand: a bare price = le+at). `stop`/`resume`/`cancel` manage it. `dbuy`/`dsell` = direct order (instant fill over WS), `dwithdraw`/`damend` pull or reprice a resting one. Nothing fires without a command
 - `refresh.ts` (`deno task refresh`): renew token pair, rewrite `stockbitAuth.ts`
 
 ## market
@@ -194,7 +198,7 @@ Entry points at root, with the rest grouped into `market/` `data/` `net/` `util/
 - `growinDepth.ts`: `fetchDepthSnapshot({symbol})`, one depth frame over protobuf WS, then close
 - `growinMeta.ts`: `fetchStockMeta({symbol})`, corporate action + UMA + suspension flags from Growin REST. Picker uses it to veto. Cookie cached per run. "no action" = `"--"`, ex-dates start with `X`
 - `growinAccount.ts`: portfolio/orders/pnl REST reads: `fetchHoldings`, `fetchConsolidated`, `fetchCash`, `fetchOrders`, `fetchRealizedPnl`. Authed via `net/growinFetch.ts` (PIN cookie)
-- `growinAutoOrder.ts`: auto-order (conditional order) REST. `resolveOrderbookId`, `createAutoOrder`, `listAutoOrders`, `controlAutoOrder` (stop/resume), `deleteAutoOrder`. Waits for a price trigger, never fires instantly
+- `growinAutoOrder.ts`: auto-order (conditional order) REST. `resolveOrderbookId`, `createAutoOrder` (creates paused then plays), `listAutoOrders`, `controlAutoOrder` + `CONTROL` enum (pause/play), `deleteAutoOrder`. Fires on a price crossing, never instantly
 - `growinOrderWs.ts`: direct order (instant) over the order WebSocket. `placeDirectOrder`, `withdrawDirectOrder`, `amendDirectOrder`, frame builders. Protobuf send frames reverse-engineered from captures. Amend/withdraw need `internalId`+`sequence` from the place confirmation
 
 ## net

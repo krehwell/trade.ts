@@ -65,13 +65,11 @@ export interface CreateAutoOrder {
     sellAfterBuyPrice?: number; // BUY only: auto-place a sell at this price after fill
 }
 
-// Maps the UI's condition + execute onto the captured payload fields.
+// Maps the UI's condition + execute onto the payload fields (verified live).
 //   Condition: BUY triggers on last price (last_price_*_bound), SELL on target
-//     price (target_price_*_bound). That asymmetry is what the captured frames show.
+//     price (target_price_*_bound). Field names are inverted: *_upper_bound means
+//     "Price >= X" and *_lower_bound means "Price <= X".
 //   Execute: Price => order_set_type 2 + quote_price. Tick => order_set_type 1 + tick_size.
-// Some mappings (ge condition, the target mirror for buy) are inferred from a
-// single capture, so createAutoOrder returns the payload to eyeball, and each new
-// variant should be verified against the app on first use.
 export const buildCreatePayload = (o: CreateAutoOrder) => {
     const buy = o.side === "BUY";
     const sellAfter = buy && o.sellAfterBuyPrice != null;
@@ -80,8 +78,6 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
     return {
         side: buy ? 1 : 2,
         lot: o.lot,
-        // Field names are inverted vs intuition: *_upper_bound => "Price >= X",
-        // *_lower_bound => "Price <= X" (verified from the order's "strategies" text).
         last_price_upper_bound: buy && c.op === "ge" ? c.price : null,
         last_price_lower_bound: buy && c.op === "le" ? c.price : null,
         drop_price_type: 0,

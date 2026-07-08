@@ -37,16 +37,19 @@ deno task refresh                          renew the Stockbit token
 
 `deno task order` has two order paths:
 
-- **Auto-order** (REST, conditional): `buy` / `sell` / `stop` / `resume` / `cancel`. Fires only when a price trigger is hit, never instantly.
+- **Auto-order** (REST, conditional): `buy` / `sell` / `stop` / `resume` / `cancel`. Fires when the price crosses a trigger, never instantly. A new order is created paused and auto-played.
 - **Direct order** (WebSocket, instant fill): `dbuy` / `dsell`, plus `dwithdraw` / `damend` to pull or reprice a resting order.
 
 ```
-deno task order list                          all auto-orders
-deno task order buy  <sym> <lot> <price>      conditional buy (optional trailing sell)
+deno task order list                          all auto-orders (with pause/play state)
+deno task order buy  <sym> <lot> <cond> <exec>   e.g. buy GOTO 5 ge=2000 at=2400
+deno task order sell <sym> <lot> <cond> <exec>   cond = le=<price>|ge=<price>, exec = at=<price>|tick=<n>
 deno task order dbuy <sym> <lot> <price>      instant buy over WS
 deno task order cancel <uuid>                 delete an auto-order
 deno task order dwithdraw <marketId> <internalId> <sequence>
 ```
+
+Direct orders share Growin's single session with the app, so run them with the app closed or the ack may not return (the order still lands, but withdraw/amend ids are lost).
 
 ## Layout
 
