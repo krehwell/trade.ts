@@ -142,7 +142,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - **Auto-order is created PAUSED (`control_state` 1) and does nothing until played (`control_state` 2).** `createAutoOrder` plays it automatically. The 1=pause / 2=play inversion is the trap that made every order sit idle, so use the `CONTROL` enum, never a raw number
 - Condition field names are inverted vs their meaning: `*_upper_bound` = "Price >= X", `*_lower_bound` = "Price <= X". BUY triggers on `last_price_*_bound`, SELL on `target_price_*_bound`. The order's `strategies` string (e.g. "If Price >= 63") is ground truth, read it back to check
 - Direct order WS shares Growin's single session with the app. With the app open the order frame still lands but the ack often never returns, so `placeDirectOrder` throws "no ack" even though the order placed. Don't run script direct orders while the app is open
-- Amend/withdraw need `internalId`+`sequence` from the place ack. The order WS pushes no open-orders snapshot on connect, so those ids exist only for orders the script placed with a good ack. App-placed or no-ack orders can only be cancelled in the app
+- Amend/withdraw need `internalId`+`sequence`. They come from the place ack, but the order-list REST also carries them: `internalId` = `user_order_id`, `sequence` = `market_order_id`. So `resolveOrderRef(marketId)` looks them up and `dwithdraw`/`damend` work on ANY resting order, including app-placed ones (rejected orders show 0, they have no real ids)
 - Growin is single-session: concurrent logins kick each other out. `growinFetch` dedupes the login promise, so don't fan out logins
 - Gocap floor stocks (price stuck at 50, e.g. GOTO) show a huge ask wall and no bid: you can buy but cannot sell until a bid appears
 
@@ -150,7 +150,7 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - Buy or sell right now at market → `dbuy` / `dsell` (instant, over WS). Close the Growin app first, it is single-session
 - Conditional entry (breakout or dip) → `buy`/`sell <sym> <lot> ge=<trigger> at=<price>` (`ge` fires when price rises to the trigger, `le` when it falls)
 - Entry plus auto take-profit → `buy <sym> <lot> ge=<trigger> at=<price> sell=<tp>`
-- Cancel an auto-order → `cancel <uuid>`. Cancel a resting direct order → `dwithdraw` (only on orders the script placed, otherwise cancel in the app)
+- Cancel an auto-order → `cancel <uuid>`. Cancel a resting direct order → `dwithdraw <marketId>` (ids looked up from the order-list, so it works on app-placed orders too)
 - Gocap floor stock with no bid → you cannot sell, do not try
 
 ### Foreign flow (IDX)

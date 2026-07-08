@@ -3,7 +3,7 @@
 // Unlike auto-order (conditional), this hits the book immediately.
 // Wire format reverse-engineered from captured frames (see growin-account-api memory).
 import { resolveOrderbookId } from "./growinAutoOrder.ts";
-import { growinAuthCookie } from "../net/growinFetch.ts";
+import { growinAuthCookie, growinFetch } from "../net/growinFetch.ts";
 import { readFrame, writeFrame, wsConnect } from "../net/growinWs.ts";
 import { fstr, get, len, parse, str, vint } from "../util/protobuf.ts";
 
@@ -181,6 +181,16 @@ export const placeDirectOrder = async (
 ): Promise<OrderAck> => {
     const orderbookId = await resolveOrderbookId(symbol);
     return sendAction(buildOrderFrame({ symbol, side, lot, price, orderbookId }), true, timeoutMs);
+};
+
+// The place ack carries internalId + sequence, but the order-list REST also has
+// them under other names: internalId = user_order_id, sequence = market_order_id.
+// So any resting order can be amended/withdrawn, even one placed in the app.
+export const resolveOrderRef = async (marketOrderId: string): Promise<OrderRef> => {
+    const j = await growinFetch("/order/api/v2/protected/order-list?page=1");
+    const o = (j?.data ?? []).find((x: Record<string, unknown>) => x.market_client_order_id === marketOrderId);
+    if (!o) throw new Error(`order ${marketOrderId} not found in order-list`);
+    return { marketOrderId, internalId: Number(o.user_order_id), sequence: o.market_order_id as number };
 };
 
 export const withdrawDirectOrder = (ref: OrderRef): Promise<OrderAck> =>
