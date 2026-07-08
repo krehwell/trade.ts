@@ -24,7 +24,6 @@ import {
     deleteAutoOrder,
     type Execute,
     listAutoOrders,
-    statusLabel,
 } from "./data/growinAutoOrder.ts";
 import { amendDirectOrder, placeDirectOrder, withdrawDirectOrder } from "./data/growinOrderWs.ts";
 import { fmtPrice } from "./util/print.ts";
@@ -35,9 +34,8 @@ const list = async () => {
     const orders = await listAutoOrders();
     if (!orders.length) return console.log("(no auto-orders)");
     for (const o of orders) {
-        const px = o.quotePrice ?? o.targetUpper;
         console.log(
-            `  ${o.symbol.padEnd(6)} ${o.side.padEnd(4)} ${o.lot} lot @ ${px ? fmtPrice(px) : "-"} | ${statusLabel(o.status)} | ${o.validFrom}..${o.validUntil}` +
+            `  ${o.symbol.padEnd(6)} ${o.side.padEnd(4)} ${o.lot} lot | ${(o.condition || "-").padEnd(18)} | ${o.state.padEnd(7)} | ${o.validFrom}..${o.validUntil}` +
             (o.buyRef ? " | sell-after-buy" : "") +
             `  ${o.uuid}`,
         );

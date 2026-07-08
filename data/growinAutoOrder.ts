@@ -18,18 +18,16 @@ export interface AutoOrder {
     symbol: string;
     side: "BUY" | "SELL";
     lot: number;
-    status: number; // 1 active/waiting, 2 stopped, 3 running, 5 done/expired
-    quotePrice: number | null;
-    targetUpper: number | null;
+    state: string; // paused | running | done, from control_state (not auto_order_status)
+    condition: string; // human-readable trigger from the API, e.g. "If Price >= 63"
     validFrom: string;
     validUntil: string;
     buyRef: string | null; // set on the sell leg of a sell-after-buy pair
 }
 
-const STATUS: Record<number, string> = {
-    1: "active", 2: "stopped", 3: "running", 5: "done/expired",
-};
-export const statusLabel = (s: number): string => STATUS[s] ?? `status ${s}`;
+// control_state, not auto_order_status: the latter says "active" even for a
+// paused order, which is exactly the confusion that hid the pause/play bug.
+const STATE: Record<number, string> = { 1: "paused", 2: "running", 3: "done", 4: "fired" };
 
 export const listAutoOrders = async (): Promise<AutoOrder[]> => {
     const d = (await growinFetch("/autoorder/api/v1"))?.data ?? [];
@@ -38,9 +36,8 @@ export const listAutoOrders = async (): Promise<AutoOrder[]> => {
         symbol: a.stock_code as string,
         side: a.side === 1 ? "BUY" : "SELL",
         lot: a.lot as number,
-        status: a.auto_order_status as number,
-        quotePrice: (a.quote_price as number) ?? null,
-        targetUpper: (a.target_price_upper_bound as number) ?? null,
+        state: STATE[a.control_state as number] ?? `control ${a.control_state}`,
+        condition: (a.strategies as string) ?? "",
         validFrom: a.start_from as string,
         validUntil: a.valid_until as string,
         buyRef: (a.strategy_buy_reference_uuid as string) ?? null,
