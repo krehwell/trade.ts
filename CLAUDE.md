@@ -146,6 +146,13 @@ Gap rules: [flat enter / gap >2% sell into it / etc]
 - Growin is single-session: concurrent logins kick each other out. `growinFetch` dedupes the login promise, so don't fan out logins
 - Gocap floor stocks (price stuck at 50, e.g. GOTO) show a huge ask wall and no bid: you can buy but cannot sell until a bid appears
 
+### Placing a trade (intent → command)
+- Buy or sell right now at market → `dbuy` / `dsell` (instant, over WS). Close the Growin app first, it is single-session
+- Conditional entry (breakout or dip) → `buy`/`sell <sym> <lot> ge=<trigger> at=<price>` (`ge` fires when price rises to the trigger, `le` when it falls)
+- Entry plus auto take-profit → `buy <sym> <lot> ge=<trigger> at=<price> sell=<tp>`
+- Cancel an auto-order → `cancel <uuid>`. Cancel a resting direct order → `dwithdraw` (only on orders the script placed, otherwise cancel in the app)
+- Gocap floor stock with no bid → you cannot sell, do not try
+
 ### Foreign flow (IDX)
 - `idx.co.id/primary/TradingSummary/GetStockSummary?date=YYYYMMDD`: token-free, per-stock ForeignBuy/Sell (shares). Net value approximated × close
 - Needs browser headers AND Deno fetch. curl gets Cloudflare-blocked (TLS fingerprint). Datacenter IPs (VPS) are blocked entirely
