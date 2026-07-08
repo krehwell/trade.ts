@@ -6,6 +6,7 @@
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
 //        until=<YYYY-MM-DD> | until=+<days>  validity (default: expires today)
 //        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
+//   edit <uuid> <field>...                edit an auto-order in place (any of the tokens above)
 //   stop <uuid>                           pause (resumable)
 //   resume <uuid>                         resume a paused order
 //   cancel <uuid>                         delete permanently
@@ -19,19 +20,58 @@
 // look internalId+sequence up from the order-list, so they work on app-placed
 // orders too. Nothing fires unless you pass a command.
 import {
-    type Condition,
     CONTROL,
     controlAutoOrder,
+    type CreateAutoOrder,
     createAutoOrder,
     deleteAutoOrder,
-    type Execute,
     listAutoOrders,
+    updateAutoOrder,
 } from "./data/growinAutoOrder.ts";
 import { amendDirectOrder, placeDirectOrder, resolveOrderRef, withdrawDirectOrder } from "./data/growinOrderWs.ts";
 import { daysAgo } from "./util/date.ts";
 import { fmtPrice } from "./util/print.ts";
 
 const [cmd, ...a] = Deno.args;
+
+// Token parser shared by buy/sell/edit. side enables the bare-number shorthand
+// (buy = le+at price, sell = ge+tick 0); edit passes null, explicit tokens only.
+// Returns null on an unknown token. Only matched keys are set, so the result
+// spreads cleanly over an existing order without clobbering fields.
+const parseOrderTokens = (
+    toks: string[],
+    side: "BUY" | "SELL" | null,
+): Partial<CreateAutoOrder> | null => {
+    const o: Partial<CreateAutoOrder> = {};
+    for (const tok of toks) {
+        let m: RegExpMatchArray | null;
+        if ((m = tok.match(/^le=(\d+(?:\.\d+)?)$/))) o.condition = { op: "le", price: Number(m[1]) };
+        else if ((m = tok.match(/^ge=(\d+(?:\.\d+)?)$/))) o.condition = { op: "ge", price: Number(m[1]) };
+        else if ((m = tok.match(/^lot=(\d+)$/))) o.lot = Number(m[1]); // edit only, buy/sell take lot positionally
+        else if ((m = tok.match(/^drop=(\d+(?:\.\d+)?)$/))) o.dropPct = Number(m[1]); // buy on -drop% from high
+        else if ((m = tok.match(/^tp=(\d+(?:\.\d+)?)$/))) o.tpPct = Number(m[1]); // take profit %
+        else if ((m = tok.match(/^sl=(\d+(?:\.\d+)?)$/))) o.slPct = Number(m[1]); // stop loss %
+        else if ((m = tok.match(/^tpRp=(\d+)$/))) o.tpRp = Number(m[1]); // take profit rupiah
+        else if ((m = tok.match(/^slRp=(\d+)$/))) o.slRp = Number(m[1]); // stop loss rupiah
+        else if ((m = tok.match(/^trail=(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/))) {
+            o.trailGain = Number(m[1]);
+            o.trailDrop = Number(m[2]);
+        } // gain%,drop%
+        else if ((m = tok.match(/^at=(\d+(?:\.\d+)?)$/))) o.execute = { mode: "price", value: Number(m[1]) };
+        else if ((m = tok.match(/^tick=(-?\d+)$/))) o.execute = { mode: "tick", value: Number(m[1]) };
+        else if ((m = tok.match(/^sell=(\d+(?:\.\d+)?)$/))) o.sellAfterBuyPrice = Number(m[1]);
+        else if ((m = tok.match(/^until=(\d{4}-\d{2}-\d{2})$/))) o.validUntil = m[1]; // absolute date
+        else if ((m = tok.match(/^until=\+(\d+)$/))) o.validUntil = daysAgo(-Number(m[1])); // +N days from today
+        else if (side && /^\d+(?:\.\d+)?$/.test(tok)) {
+            if (!o.condition && !o.execute) {
+                const p = Number(tok);
+                o.condition = { op: side === "BUY" ? "le" : "ge", price: p };
+                o.execute = side === "BUY" ? { mode: "price", value: p } : { mode: "tick", value: 0 };
+            } else o.sellAfterBuyPrice = Number(tok);
+        } else return null;
+    }
+    return o;
+};
 
 const list = async () => {
     const orders = await listAutoOrders();
@@ -59,69 +99,41 @@ switch (cmd) {
             Deno.exit(1);
         };
         if (!sym || !lot) usage();
-        // parse cond/exec tokens, where a bare number is shorthand (buy le+at, sell ge+tick0)
-        let condition: Condition | undefined;
-        let execute: Execute | undefined;
-        let dropPct: number | undefined;
-        let tpPct: number | undefined;
-        let slPct: number | undefined;
-        let tpRp: number | undefined;
-        let slRp: number | undefined;
-        let trailGain: number | undefined;
-        let trailDrop: number | undefined;
-        let sellAt: number | undefined;
-        let validUntil: string | undefined;
-        for (const tok of rest) {
-            let m: RegExpMatchArray | null;
-            if ((m = tok.match(/^le=(\d+(?:\.\d+)?)$/))) condition = { op: "le", price: Number(m[1]) };
-            else if ((m = tok.match(/^ge=(\d+(?:\.\d+)?)$/))) condition = { op: "ge", price: Number(m[1]) };
-            else if ((m = tok.match(/^drop=(\d+(?:\.\d+)?)$/))) dropPct = Number(m[1]); // buy on -drop% from high
-            else if ((m = tok.match(/^tp=(\d+(?:\.\d+)?)$/))) tpPct = Number(m[1]); // take profit %
-            else if ((m = tok.match(/^sl=(\d+(?:\.\d+)?)$/))) slPct = Number(m[1]); // stop loss %
-            else if ((m = tok.match(/^tpRp=(\d+)$/))) tpRp = Number(m[1]); // take profit rupiah
-            else if ((m = tok.match(/^slRp=(\d+)$/))) slRp = Number(m[1]); // stop loss rupiah
-            else if ((m = tok.match(/^trail=(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/))) { trailGain = Number(m[1]); trailDrop = Number(m[2]); } // gain%,drop%
-            else if ((m = tok.match(/^at=(\d+(?:\.\d+)?)$/))) execute = { mode: "price", value: Number(m[1]) };
-            else if ((m = tok.match(/^tick=(-?\d+)$/))) execute = { mode: "tick", value: Number(m[1]) };
-            else if ((m = tok.match(/^sell=(\d+(?:\.\d+)?)$/))) sellAt = Number(m[1]);
-            else if ((m = tok.match(/^until=(\d{4}-\d{2}-\d{2})$/))) validUntil = m[1]; // absolute date
-            else if ((m = tok.match(/^until=\+(\d+)$/))) validUntil = daysAgo(-Number(m[1])); // +N days from today
-            else if (/^\d+(?:\.\d+)?$/.test(tok)) {
-                if (!condition && !execute) {
-                    const p = Number(tok);
-                    condition = { op: side === "BUY" ? "le" : "ge", price: p };
-                    execute = side === "BUY" ? { mode: "price", value: p } : { mode: "tick", value: 0 };
-                } else sellAt = Number(tok);
-            } else usage();
-        }
-        const sellOnly = tpPct != null || slPct != null || tpRp != null || slRp != null || trailGain != null;
+        const p = parseOrderTokens(rest, side);
+        if (!p) usage();
+        const sellOnly = p!.tpPct != null || p!.slPct != null || p!.tpRp != null || p!.slRp != null || p!.trailGain != null;
         if (sellOnly && side === "BUY") {
             console.error("tp/sl/tpRp/slRp/trail are sell-only (they act on a held position)");
             Deno.exit(1);
         }
-        if (dropPct != null && side === "SELL") {
+        if (p!.dropPct != null && side === "SELL") {
             console.error("drop is buy-only (buy on a dip from the high)");
             Deno.exit(1);
         }
-        if ((!condition && !sellOnly && dropPct == null) || !execute) usage();
+        if ((!p!.condition && !sellOnly && p!.dropPct == null) || !p!.execute) usage();
         const { uuid, payload } = await createAutoOrder({
             symbol: sym,
             side,
             lot: Number(lot),
-            condition,
-            dropPct,
-            tpPct,
-            slPct,
-            tpRp,
-            slRp,
-            trailGain,
-            trailDrop,
-            execute: execute!,
-            validUntil,
-            sellAfterBuyPrice: sellAt,
+            ...p!,
+            execute: p!.execute!,
         });
         console.log("sent payload:", JSON.stringify(payload));
         console.log(`created auto-order ${uuid}`);
+        await list();
+        break;
+    }
+    case "edit": {
+        // edit fields in place (same uuid): pause, PUT merged payload, re-play
+        const [uuid, ...rest] = a;
+        const p = uuid && rest.length ? parseOrderTokens(rest, null) : null;
+        if (!p || !Object.keys(p).length) {
+            console.error("usage: deno task order edit <uuid> <field>...");
+            console.error("  fields: le=/ge=<price> at=<price> tick=<n> lot=<n> until=<date|+days> drop= tp= sl= tpRp= slRp= trail=");
+            Deno.exit(1);
+        }
+        await updateAutoOrder(uuid, p!);
+        console.log("updated");
         await list();
         break;
     }
@@ -179,7 +191,7 @@ switch (cmd) {
     }
     default:
         console.error(
-            "commands: list | buy | sell | stop | resume | cancel | dbuy | dsell | dwithdraw | damend",
+            "commands: list | buy | sell | edit | stop | resume | cancel | dbuy | dsell | dwithdraw | damend",
         );
         Deno.exit(1);
 }

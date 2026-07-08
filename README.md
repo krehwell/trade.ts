@@ -45,6 +45,7 @@ deno task order list                          all auto-orders (with pause/play s
 deno task order buy  <sym> <lot> <cond> <exec>   e.g. buy GOTO 5 ge=2000 at=2400
 deno task order sell <sym> <lot> <cond> <exec>   cond = le=<price>|ge=<price>, exec = at=<price>|tick=<n>
                      add until=<YYYY-MM-DD> or until=+<days> to keep it valid past today
+deno task order edit <uuid> <field>...        edit in place (same tokens, e.g. ge=105 lot=2 until=+7)
 deno task order dbuy <sym> <lot> <price>      instant buy over WS
 deno task order cancel <uuid>                 delete an auto-order
 deno task order dwithdraw <marketId> <internalId> <sequence>

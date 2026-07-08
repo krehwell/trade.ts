@@ -139,6 +139,51 @@ export const createAutoOrder = async (o: CreateAutoOrder): Promise<{ uuid: strin
     return { uuid, payload };
 };
 
+// Reconstruct a CreateAutoOrder from a GET row, so an edit can rebuild the full
+// payload with only some fields changed. Unset ratio/total/drop fields come back
+// as 0 or null, both mean "not set", hence the `|| undefined`.
+// deno-lint-ignore no-explicit-any
+const rowToOrder = (r: any): CreateAutoOrder => {
+    const buy = r.side === 1;
+    const ge = buy ? r.last_price_upper_bound : r.target_price_upper_bound;
+    const le = buy ? r.last_price_lower_bound : r.target_price_lower_bound;
+    return {
+        symbol: r.stock_code,
+        side: buy ? "BUY" : "SELL",
+        lot: r.lot,
+        condition: ge ? { op: "ge", price: ge } : le ? { op: "le", price: le } : undefined,
+        dropPct: r.drop_price_type === 1 ? r.drop_percentage : undefined,
+        tpPct: r.ratio_profit || undefined,
+        slPct: r.ratio_loss || undefined,
+        tpRp: r.total_profit || undefined,
+        slRp: r.total_loss || undefined,
+        trailGain: r.enable_trailing_stop ? r.after_gaining_percentage : undefined,
+        trailDrop: r.enable_trailing_stop ? r.sell_if_drop_percentage : undefined,
+        execute: r.order_set_type === 2 ? { mode: "price", value: r.quote_price } : { mode: "tick", value: r.tick_size },
+        validUntil: r.valid_until,
+        sellAfterBuyPrice: r.enable_sell_after_buy ? r.sell_after_buy_quote_price : undefined,
+    };
+};
+
+// Edit an auto-order in place (same uuid). The API 422s a PUT while the order is
+// running and rejects unknown fields, so: pause, PUT a clean create payload
+// (row values merged with the edits), then play again if it was running.
+export const updateAutoOrder = async (uuid: string, edits: Partial<CreateAutoOrder>): Promise<CreateAutoOrder> => {
+    // deno-lint-ignore no-explicit-any
+    const raw = (((await growinFetch("/autoorder/api/v1"))?.data ?? []) as any[]).find((r) => r.auto_order_uuid === uuid);
+    if (!raw) throw new Error(`auto-order ${uuid} not found`);
+    const merged = { ...rowToOrder(raw), ...edits };
+    const payload = buildCreatePayload(merged);
+    payload.orderbook_id = raw.orderbook_id;
+    payload.start_from = raw.start_from; // keep the original window start
+    payload.auto_order_uuid = uuid;
+    const wasRunning = raw.control_state === CONTROL.PLAY;
+    if (wasRunning) await controlAutoOrder(uuid, CONTROL.PAUSE);
+    await growinFetch("/autoorder/api/v1", { method: "PUT", body: payload });
+    if (wasRunning) await controlAutoOrder(uuid, CONTROL.PLAY);
+    return merged;
+};
+
 // hard delete (permanent cancel)
 export const deleteAutoOrder = (uuid: string) =>
     growinFetch(`/autoorder/api/v1/${uuid}`, { method: "DELETE" });
