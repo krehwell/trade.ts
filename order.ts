@@ -2,7 +2,7 @@
 //   list                                  show all auto-orders
 //   buy  <sym> <lot> <cond> <exec> [sell=<price>]   conditional buy
 //   sell <sym> <lot> <cond> <exec>                  conditional sell
-//        <cond> = le=<price> | ge=<price> | tp=<pct> | sl=<pct> | trail=<gain%>,<drop%>   (price, or sell-only tp/sl/trailing)
+//        <cond> = le=<price> | ge=<price> | drop=<pct> (buy) | tp=<pct> | sl=<pct> | trail=<gain%>,<drop%> (sell)
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
 //        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
 //   stop <uuid>                           pause (resumable)
@@ -60,6 +60,7 @@ switch (cmd) {
         // parse cond/exec tokens, where a bare number is shorthand (buy le+at, sell ge+tick0)
         let condition: Condition | undefined;
         let execute: Execute | undefined;
+        let dropPct: number | undefined;
         let tpPct: number | undefined;
         let slPct: number | undefined;
         let trailGain: number | undefined;
@@ -69,6 +70,7 @@ switch (cmd) {
             let m: RegExpMatchArray | null;
             if ((m = tok.match(/^le=(\d+(?:\.\d+)?)$/))) condition = { op: "le", price: Number(m[1]) };
             else if ((m = tok.match(/^ge=(\d+(?:\.\d+)?)$/))) condition = { op: "ge", price: Number(m[1]) };
+            else if ((m = tok.match(/^drop=(\d+(?:\.\d+)?)$/))) dropPct = Number(m[1]); // buy on -drop% from high
             else if ((m = tok.match(/^tp=(\d+(?:\.\d+)?)$/))) tpPct = Number(m[1]); // take profit %
             else if ((m = tok.match(/^sl=(\d+(?:\.\d+)?)$/))) slPct = Number(m[1]); // stop loss %
             else if ((m = tok.match(/^trail=(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/))) { trailGain = Number(m[1]); trailDrop = Number(m[2]); } // gain%,drop%
@@ -88,12 +90,17 @@ switch (cmd) {
             console.error("tp/sl/trail are sell-only (they act on a held position)");
             Deno.exit(1);
         }
-        if ((!condition && !sellOnly) || !execute) usage();
+        if (dropPct != null && side === "SELL") {
+            console.error("drop is buy-only (buy on a dip from the high)");
+            Deno.exit(1);
+        }
+        if ((!condition && !sellOnly && dropPct == null) || !execute) usage();
         const { uuid, payload } = await createAutoOrder({
             symbol: sym,
             side,
             lot: Number(lot),
             condition,
+            dropPct,
             tpPct,
             slPct,
             trailGain,

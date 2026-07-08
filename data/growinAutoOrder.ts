@@ -60,6 +60,7 @@ export interface CreateAutoOrder {
     side: "BUY" | "SELL";
     lot: number;
     condition?: Condition; // price trigger, optional when tp/sl given
+    dropPct?: number; // BUY: drop_percentage, fire when price drops dropPct% from its high
     tpPct?: number; // SELL: ratio_profit, fire when profit >= tpPct% of avg price
     slPct?: number; // SELL: ratio_loss, fire when loss >= slPct% of avg price
     trailGain?: number; // SELL: after_gaining_percentage, trailing arms after +gain%
@@ -84,8 +85,9 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
         lot: o.lot,
         last_price_upper_bound: buy && c?.op === "ge" ? c.price : null,
         last_price_lower_bound: buy && c?.op === "le" ? c.price : null,
-        drop_price_type: 0,
-        drop_percentage: null,
+        // Drop by %: buy when price falls dropPct% from its high. type 1 = From Highest Price.
+        drop_price_type: o.dropPct != null ? 1 : 0,
+        drop_percentage: o.dropPct ?? null,
         drop_price_from: null,
         order_set_type: priceMode ? 2 : 1,
         tick_size: priceMode ? null : o.execute.value,
