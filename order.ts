@@ -18,6 +18,7 @@
 // dbuy/dsell print. Nothing fires unless you pass a command.
 import {
     type Condition,
+    CONTROL,
     controlAutoOrder,
     createAutoOrder,
     deleteAutoOrder,
@@ -93,7 +94,7 @@ switch (cmd) {
     case "stop":
     case "resume": {
         if (!a[0]) { console.error(`usage: deno task order ${cmd} <uuid>`); Deno.exit(1); }
-        await controlAutoOrder(a[0], cmd === "stop" ? 2 : 1);
+        await controlAutoOrder(a[0], cmd === "stop" ? CONTROL.PAUSE : CONTROL.PLAY);
         console.log(`${cmd} ok`);
         break;
     }

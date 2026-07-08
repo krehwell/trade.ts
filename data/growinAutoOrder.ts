@@ -83,8 +83,10 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
     return {
         side: buy ? 1 : 2,
         lot: o.lot,
-        last_price_upper_bound: buy && c.op === "le" ? c.price : null,
-        last_price_lower_bound: buy && c.op === "ge" ? c.price : null,
+        // Field names are inverted vs intuition: *_upper_bound => "Price >= X",
+        // *_lower_bound => "Price <= X" (verified from the order's "strategies" text).
+        last_price_upper_bound: buy && c.op === "ge" ? c.price : null,
+        last_price_lower_bound: buy && c.op === "le" ? c.price : null,
         drop_price_type: 0,
         drop_percentage: null,
         drop_price_from: null,
@@ -100,7 +102,7 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
         ratio_profit: null,
         ratio_loss: null,
         quote_price: priceMode ? o.execute.value : null,
-        target_price_upper_bound: buy ? c.price : (c.op === "ge" ? c.price : null),
+        target_price_upper_bound: !buy && c.op === "ge" ? c.price : null,
         target_price_lower_bound: !buy && c.op === "le" ? c.price : null,
         enable_trailing_stop: false,
         sell_if_drop_percentage: null,
@@ -114,9 +116,11 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
     };
 };
 
-// control_state 1 = play/run, 2 = pause. A freshly created order sits PAUSED
-// (status 1). It only runs once played (status -> 3).
-export const controlAutoOrder = (uuid: string, state: 1 | 2) =>
+// A new order is created PAUSED and does nothing until it is played.
+export const CONTROL = { PAUSE: 1, PLAY: 2 } as const;
+type ControlState = typeof CONTROL[keyof typeof CONTROL];
+
+export const controlAutoOrder = (uuid: string, state: ControlState) =>
     growinFetch("/autoorder/api/v1/control", {
         method: "PUT",
         body: { auto_order_uuid: uuid, control_state: state },
@@ -127,7 +131,7 @@ export const createAutoOrder = async (o: CreateAutoOrder): Promise<{ uuid: strin
     payload.orderbook_id = await resolveOrderbookId(o.symbol);
     const j = await growinFetch("/autoorder/api/v1", { method: "POST", body: payload });
     const uuid = j?.data?.auto_order_uuid;
-    if (uuid) await controlAutoOrder(uuid, 1); // created paused; play so it actually runs
+    if (uuid) await controlAutoOrder(uuid, CONTROL.PLAY); // created paused, play so it runs
     return { uuid, payload };
 };
 
