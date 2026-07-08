@@ -59,7 +59,9 @@ export interface CreateAutoOrder {
     symbol: string;
     side: "BUY" | "SELL";
     lot: number;
-    condition: Condition;
+    condition?: Condition; // price trigger, optional when tp/sl given
+    tpPct?: number; // SELL: ratio_profit, fire when profit >= tpPct% of avg price
+    slPct?: number; // SELL: ratio_loss, fire when loss >= slPct% of avg price
     execute: Execute;
     validUntil?: string; // default today
     sellAfterBuyPrice?: number; // BUY only: auto-place a sell at this price after fill
@@ -78,8 +80,8 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
     return {
         side: buy ? 1 : 2,
         lot: o.lot,
-        last_price_upper_bound: buy && c.op === "ge" ? c.price : null,
-        last_price_lower_bound: buy && c.op === "le" ? c.price : null,
+        last_price_upper_bound: buy && c?.op === "ge" ? c.price : null,
+        last_price_lower_bound: buy && c?.op === "le" ? c.price : null,
         drop_price_type: 0,
         drop_percentage: null,
         drop_price_from: null,
@@ -92,11 +94,12 @@ export const buildCreatePayload = (o: CreateAutoOrder) => {
         price: null,
         total_profit: null,
         total_loss: null,
-        ratio_profit: null,
-        ratio_loss: null,
+        // Ratio %: raw percent of avg price (7 = 7%), verified from a capture.
+        ratio_profit: o.tpPct ?? null,
+        ratio_loss: o.slPct ?? null,
         quote_price: priceMode ? o.execute.value : null,
-        target_price_upper_bound: !buy && c.op === "ge" ? c.price : null,
-        target_price_lower_bound: !buy && c.op === "le" ? c.price : null,
+        target_price_upper_bound: !buy && c?.op === "ge" ? c.price : null,
+        target_price_lower_bound: !buy && c?.op === "le" ? c.price : null,
         enable_trailing_stop: false,
         sell_if_drop_percentage: null,
         after_gaining_percentage: null,

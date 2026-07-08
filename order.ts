@@ -2,7 +2,7 @@
 //   list                                  show all auto-orders
 //   buy  <sym> <lot> <cond> <exec> [sell=<price>]   conditional buy
 //   sell <sym> <lot> <cond> <exec>                  conditional sell
-//        <cond> = le=<price> | ge=<price>   (fire when price ≤ / ≥ that level)
+//        <cond> = le=<price> | ge=<price> | tp=<pct> | sl=<pct>   (price level, or sell-only take-profit / stop-loss % of avg)
 //        <exec> = at=<price> | tick=<n>     (place at price, or n ticks from trigger)
 //        shorthand: buy/sell <sym> <lot> <price>  (buy = le+at price, sell = ge + tick 0)
 //   stop <uuid>                           pause (resumable)
@@ -53,18 +53,22 @@ switch (cmd) {
         const [sym, lot, ...rest] = a;
         const usage = () => {
             console.error(`usage: deno task order ${cmd} <sym> <lot> <cond> <exec> [sell=<price>]`);
-            console.error(`  <cond> le=<price>|ge=<price>   <exec> at=<price>|tick=<n>   shorthand: <sym> <lot> <price>`);
+            console.error(`  <cond> le=<price>|ge=<price>|tp=<pct>|sl=<pct>   <exec> at=<price>|tick=<n>   shorthand: <sym> <lot> <price>`);
             Deno.exit(1);
         };
         if (!sym || !lot) usage();
         // parse cond/exec tokens, where a bare number is shorthand (buy le+at, sell ge+tick0)
         let condition: Condition | undefined;
         let execute: Execute | undefined;
+        let tpPct: number | undefined;
+        let slPct: number | undefined;
         let sellAt: number | undefined;
         for (const tok of rest) {
             let m: RegExpMatchArray | null;
             if ((m = tok.match(/^le=(\d+(?:\.\d+)?)$/))) condition = { op: "le", price: Number(m[1]) };
             else if ((m = tok.match(/^ge=(\d+(?:\.\d+)?)$/))) condition = { op: "ge", price: Number(m[1]) };
+            else if ((m = tok.match(/^tp=(\d+(?:\.\d+)?)$/))) tpPct = Number(m[1]); // take profit %
+            else if ((m = tok.match(/^sl=(\d+(?:\.\d+)?)$/))) slPct = Number(m[1]); // stop loss %
             else if ((m = tok.match(/^at=(\d+(?:\.\d+)?)$/))) execute = { mode: "price", value: Number(m[1]) };
             else if ((m = tok.match(/^tick=(-?\d+)$/))) execute = { mode: "tick", value: Number(m[1]) };
             else if ((m = tok.match(/^sell=(\d+(?:\.\d+)?)$/))) sellAt = Number(m[1]);
@@ -76,12 +80,18 @@ switch (cmd) {
                 } else sellAt = Number(tok);
             } else usage();
         }
-        if (!condition || !execute) usage();
+        if ((tpPct != null || slPct != null) && side === "BUY") {
+            console.error("tp/sl are sell-only (profit/loss on a held position)");
+            Deno.exit(1);
+        }
+        if ((!condition && tpPct == null && slPct == null) || !execute) usage();
         const { uuid, payload } = await createAutoOrder({
             symbol: sym,
             side,
             lot: Number(lot),
-            condition: condition!,
+            condition,
+            tpPct,
+            slPct,
             execute: execute!,
             sellAfterBuyPrice: sellAt,
         });
