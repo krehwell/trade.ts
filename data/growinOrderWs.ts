@@ -247,11 +247,53 @@ export const resolveOrderRef = async (id: string): Promise<OrderRef> => {
     throw new Error(`order ${id} not found in order-list`);
 };
 
-export const withdrawDirectOrder = (ref: OrderRef): Promise<OrderAck> =>
-    sendAction(buildWithdrawFrame(ref), false);
+// Withdraw/amend share the single-session no-ack problem with place: the frame
+// lands but the ack is lost. Confirm against the order-list instead of failing:
+// the target order's status flips to CANCELED (withdraw) or AMENDED (amend).
+const recoverActionAck = async (
+    ref: OrderRef,
+    wantStatus: string,
+    price: number,
+    attempts = 4,
+): Promise<OrderAck | null> => {
+    for (let i = 0; i < attempts; i++) {
+        await new Promise((r) => setTimeout(r, 700));
+        const j = await growinFetch("/order/api/v2/protected/order-list?page=1");
+        const row = (j?.data ?? []).find((x: Record<string, unknown>) => x.market_client_order_id === ref.marketOrderId);
+        if (row?.order_status !== wantStatus) continue;
+        return {
+            orderId: Number(row.transaction_id) || 0,
+            status: String(row.side) === "1" ? "B" : "S",
+            symbol: row.symbol as string,
+            lot: Number(row.quantity) || 0,
+            price,
+            marketOrderId: ref.marketOrderId,
+            internalId: ref.internalId,
+            sequence: ref.sequence,
+        };
+    }
+    return null;
+};
 
-export const amendDirectOrder = (ref: OrderRef, newPrice: number): Promise<OrderAck> =>
-    sendAction(buildAmendFrame(ref, newPrice), false);
+export const withdrawDirectOrder = async (ref: OrderRef): Promise<OrderAck> => {
+    try {
+        return await sendAction(buildWithdrawFrame(ref), false);
+    } catch (e) {
+        const recovered = await recoverActionAck(ref, "CANCELED", 0);
+        if (recovered) return recovered;
+        throw e;
+    }
+};
+
+export const amendDirectOrder = async (ref: OrderRef, newPrice: number): Promise<OrderAck> => {
+    try {
+        return await sendAction(buildAmendFrame(ref, newPrice), false);
+    } catch (e) {
+        const recovered = await recoverActionAck(ref, "AMENDED", newPrice);
+        if (recovered) return recovered;
+        throw e;
+    }
+};
 
 if (import.meta.main) {
     const o: DirectOrder = { symbol: "bbca", side: "BUY", lot: 1, price: 5000, orderbookId: 1 };
