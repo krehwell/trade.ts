@@ -2,6 +2,7 @@
 // Per-stock TA as JSON: MA distances, vol ratios, price structure, drawdown, range position,
 // volume trend, red flags. Pulls 60d candles.
 import { fetchCandles } from "./data/stockbitCandles.ts";
+import { fetchStockMeta, metaWarnings } from "./data/growinMeta.ts";
 import { candleStats, distPct, sma } from "./market/indicators.ts";
 
 const sym = Deno.args[0];
@@ -43,6 +44,15 @@ if (volRatio5 > 2 && closedNearLow) flags.push("HIGH_VOL_DISTRIBUTION: vol spike
 if (rangePos60 < 0.1 && chg1d < 0) flags.push("AT_LOWS: making new lows, no support");
 if (last.close * last.volume < 1_000_000_000) flags.push("THIN: <1B value, can't exit");
 if (dd < -40) flags.push("DEEP_DRAWDOWN: >40% from highs");
+
+// Ex-date / corporate action check
+try {
+    const meta = await fetchStockMeta({ symbol: sym });
+    const mw = metaWarnings(meta);
+    if (mw.length) flags.push(...mw);
+} catch {
+    // meta fetch is best-effort — don't fail the whole analysis
+}
 
 // Output
 console.log(JSON.stringify({

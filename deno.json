@@ -3,7 +3,7 @@
     "refresh": "deno run --unstable-http --allow-net --allow-read --allow-write refresh.ts",
     "daily": "deno run --unstable-http --allow-net daily.ts",
     "pick": "deno run --unstable-http --env-file --allow-env --allow-net picker.ts",
-    "analyze": "deno run --unstable-http --allow-net analyzeStock.ts",
+    "analyze": "deno run --unstable-http --allow-net --allow-env --env-file analyzeStock.ts",
     "bandar": "deno run --unstable-http --env-file --allow-env --allow-net bandarHistory.ts",
     "bandar-top": "deno run --unstable-http --allow-net bandarToday.ts",
     "orderbook": "deno run --unstable-net --env-file --allow-net --allow-env orderbook.ts",
