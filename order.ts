@@ -30,10 +30,20 @@ import {
     updateAutoOrder,
 } from "./data/growinAutoOrder.ts";
 import { amendDirectOrder, placeDirectOrder, resolveOrderRef, withdrawDirectOrder } from "./data/growinOrderWs.ts";
+import { onTick, tickSize } from "./market/indicators.ts";
 import { daysAgo } from "./util/date.ts";
 import { fmtPrice } from "./util/print.ts";
 
 const [cmd, ...a] = Deno.args;
+
+// Execution prices must sit on the IDX fraction or the exchange rejects them.
+const checkTick = (price: number) => {
+    if (onTick(price)) return;
+    const t = tickSize(price);
+    const lo = price - (price % t);
+    console.error(`invalid price ${price}: fraksi at this band is ${t} (nearest valid: ${lo} or ${lo + t})`);
+    Deno.exit(1);
+};
 
 // Token parser shared by buy/sell/edit. side enables the bare-number shorthand
 // (buy = le+at price, sell = ge+tick 0); edit passes null, explicit tokens only.
@@ -112,6 +122,8 @@ switch (cmd) {
             Deno.exit(1);
         }
         if ((!p!.condition && !sellOnly && p!.dropPct == null) || !p!.execute) usage();
+        if (p!.execute!.mode === "price") checkTick(p!.execute!.value);
+        if (p!.sellAfterBuyPrice != null) checkTick(p!.sellAfterBuyPrice);
         const { uuid, payload } = await createAutoOrder({
             symbol: sym,
             side,
@@ -133,6 +145,8 @@ switch (cmd) {
             console.error("  fields: le=/ge=<price> at=<price> tick=<n> lot=<n> until=<date|+days> drop= tp= sl= tpRp= slRp= trail=");
             Deno.exit(1);
         }
+        if (p!.execute?.mode === "price") checkTick(p!.execute.value);
+        if (p!.sellAfterBuyPrice != null) checkTick(p!.sellAfterBuyPrice);
         await updateAutoOrder(uuid, p!);
         console.log("updated");
         await list();
@@ -158,6 +172,7 @@ switch (cmd) {
             console.error(`usage: deno task order ${cmd} <sym> <lot> <price>`);
             Deno.exit(1);
         }
+        checkTick(Number(price));
         const ack = await placeDirectOrder({
             symbol: sym,
             side: cmd === "dbuy" ? "BUY" : "SELL",
@@ -185,6 +200,7 @@ switch (cmd) {
         const price = a[a.length - 1];
         const [mid, iid, seq] = a;
         if (!mid || a.length < 2) { console.error("usage: deno task order damend <orderId> [<internalId> <sequence>] <newPrice>"); Deno.exit(1); }
+        checkTick(Number(price));
         const ref = a.length >= 4 ? { marketOrderId: mid, internalId: Number(iid), sequence: Number(seq) } : await resolveOrderRef(mid);
         const ack = await amendDirectOrder(ref, Number(price));
         console.log(`amend accepted: new order ${ack.marketOrderId} @ ${fmtPrice(ack.price)}`);

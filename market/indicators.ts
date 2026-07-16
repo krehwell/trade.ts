@@ -25,6 +25,13 @@ export const maSlope = (values: number[], period: number, lookback: number): num
 export const avgVolume = (volumes: number[], period: number, excludeLast = false): number =>
     sma(excludeLast ? volumes.slice(0, -1) : volumes, period);
 
+// IDX price fraction (fraksi): the valid tick size for a price band. A price
+// that is not a multiple of its tick is rejected by the exchange.
+export const tickSize = (price: number): number =>
+    price < 200 ? 1 : price < 500 ? 2 : price < 2000 ? 5 : price < 5000 ? 10 : 25;
+
+export const onTick = (price: number): boolean => price % tickSize(price) === 0;
+
 export interface CandleLike {
     open: number;
     high: number;
@@ -123,6 +130,11 @@ if (import.meta.main) {
     assert(cs.higherLows3d, "candleStats higher lows");
     assert(cs.gapUp, "candleStats gapUp (open 109 > prev close 108)");
     assert(cs.cp === 50 && !cs.closedNearHigh && !cs.closedNearLow, "candleStats cp mid-range");
+
+    assert(tickSize(123) === 1 && tickSize(228) === 2 && tickSize(505) === 5, "tickSize low bands");
+    assert(tickSize(2010) === 10 && tickSize(6125) === 25, "tickSize high bands");
+    assert(tickSize(200) === 2 && tickSize(500) === 5 && tickSize(2000) === 10 && tickSize(5000) === 25, "tickSize band boundaries");
+    assert(onTick(228) && !onTick(225) && onTick(123) && onTick(6125) && !onTick(5010), "onTick");
 
     console.log("indicators: all checks passed");
 }
