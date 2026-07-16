@@ -12,11 +12,12 @@
 //   cancel <uuid>                         delete permanently
 //   dbuy  <sym> <lot> <price>             DIRECT buy (instant, hits book now, via WS)
 //   dsell <sym> <lot> <price>             DIRECT sell (instant)
-//   dwithdraw <marketId>          cancel a resting direct order (any order, ids looked up from REST)
-//   damend    <marketId> <price>  reprice a resting direct order
+//   dwithdraw <orderId>           cancel a resting direct order (any order, ids looked up from REST)
+//   damend    <orderId> <price>   reprice a resting direct order
+//        <orderId> = marketId (GW...@...) or the transaction id the account view shows
 //
 // buy/sell = auto-order (conditional, fires on a price trigger).
-// dbuy/dsell = direct order (instant fill). dwithdraw/damend take a marketId and
+// dbuy/dsell = direct order (instant fill). dwithdraw/damend take an order id and
 // look internalId+sequence up from the order-list, so they work on app-placed
 // orders too. Nothing fires unless you pass a command.
 import {
@@ -170,20 +171,20 @@ switch (cmd) {
         break;
     }
     case "dwithdraw": {
-        // <marketId> alone looks the ids up from the order-list (works on any
+        // <orderId> alone looks the ids up from the order-list (works on any
         // order, even app-placed), or pass all three to skip the lookup.
         const [mid, iid, seq] = a;
-        if (!mid) { console.error("usage: deno task order dwithdraw <marketId> [<internalId> <sequence>]"); Deno.exit(1); }
+        if (!mid) { console.error("usage: deno task order dwithdraw <orderId> [<internalId> <sequence>]"); Deno.exit(1); }
         const ref = iid && seq ? { marketOrderId: mid, internalId: Number(iid), sequence: Number(seq) } : await resolveOrderRef(mid);
         await withdrawDirectOrder(ref);
         console.log(`withdraw accepted: ${mid}`);
         break;
     }
     case "damend": {
-        // <marketId> <newPrice>, or <marketId> <internalId> <sequence> <newPrice>
+        // <orderId> <newPrice>, or <orderId> <internalId> <sequence> <newPrice>
         const price = a[a.length - 1];
         const [mid, iid, seq] = a;
-        if (!mid || a.length < 2) { console.error("usage: deno task order damend <marketId> [<internalId> <sequence>] <newPrice>"); Deno.exit(1); }
+        if (!mid || a.length < 2) { console.error("usage: deno task order damend <orderId> [<internalId> <sequence>] <newPrice>"); Deno.exit(1); }
         const ref = a.length >= 4 ? { marketOrderId: mid, internalId: Number(iid), sequence: Number(seq) } : await resolveOrderRef(mid);
         const ack = await amendDirectOrder(ref, Number(price));
         console.log(`amend accepted: new order ${ack.marketOrderId} @ ${fmtPrice(ack.price)}`);

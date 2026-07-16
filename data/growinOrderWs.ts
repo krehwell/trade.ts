@@ -227,11 +227,24 @@ export const placeDirectOrder = async (
 // The place ack carries internalId + sequence, but the order-list REST also has
 // them under other names: internalId = user_order_id, sequence = market_order_id.
 // So any resting order can be amended/withdrawn, even one placed in the app.
-export const resolveOrderRef = async (marketOrderId: string): Promise<OrderRef> => {
-    const j = await growinFetch("/order/api/v2/protected/order-list?page=1");
-    const o = (j?.data ?? []).find((x: Record<string, unknown>) => x.market_client_order_id === marketOrderId);
-    if (!o) throw new Error(`order ${marketOrderId} not found in order-list`);
-    return { marketOrderId, internalId: Number(o.user_order_id), sequence: o.market_order_id as number };
+// Accepts the marketOrderId (GW...@...) or the plain transaction_id the account
+// view shows, and walks all pages (list is newest first).
+export const resolveOrderRef = async (id: string): Promise<OrderRef> => {
+    for (let page = 1, total = 1; page <= total; page++) {
+        const j = await growinFetch(`/order/api/v2/protected/order-list?page=${page}`);
+        total = j?.total_page ?? 1;
+        const o = (j?.data ?? []).find((x: Record<string, unknown>) =>
+            x.market_client_order_id === id || String(x.transaction_id) === id
+        );
+        if (!o) continue;
+        if (!Number(o.user_order_id)) throw new Error(`order ${id} has no live ids (rejected?)`);
+        return {
+            marketOrderId: o.market_client_order_id as string,
+            internalId: Number(o.user_order_id),
+            sequence: o.market_order_id as number,
+        };
+    }
+    throw new Error(`order ${id} not found in order-list`);
 };
 
 export const withdrawDirectOrder = (ref: OrderRef): Promise<OrderAck> =>
